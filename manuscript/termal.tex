@@ -32,16 +32,15 @@ Amphipôle, Quartier UNIL-Sorge, CH-1015 Lausanne, Switzerland --
 \maketitle
 
 \begin{abstract} \textbf{Summary:} We present \texttt{termal}, a fast,
-  interactive terminal-based viewer for multiple sequence alignments (MSAs),
-  designed for use on remote systems such as high-performance computing (HPC)
-  clusters. Unlike traditional graphical viewers, \texttt{termal} runs entirely
-  within a terminal and offers features such as scrolling, zooming,
-  consensus/conservation visualization, and customizable colour schemes. It is
-  implemented in Rust, ensuring high performance and minimal dependencies.
+	interactive terminal-based viewer for multiple sequence alignments (MSAs),
+	designed for use on remote systems such as high-performance computing (HPC)
+	clusters. Unlike traditional graphical viewers, \texttt{termal} runs entirely
+	within a terminal; but like graphical viewers, it offers features such as
+	scrolling, zooming, consensus/conservation visualization, and colour schemes.
 
 	\textbf{Availability and implementation:} \texttt{termal} is written in Rust
 	and freely available under the MIT license at
-	\url{https://gitlab.sib.swiss/tjunier/termal.git}
+	\url{https://github.com/sib-swiss/termal.git}
 
 \end{abstract}
 
@@ -108,14 +107,13 @@ alignment.
 \centering
 	\includegraphics[width=\textwidth]{figure-1.pdf}
 \caption{%
-	A snapshot of \texttt{termal}'s interface showing a protein alignment. A:
+	A snapshot of the interface of \texttt{termal} v1.0.0, showing a protein alignment. A:
 	alignment filename and dimensions, B: sequence numbers pane, C: sequence
 	labels pane, D: metric bar plot pane (currently displaying sequence similarity
 	with the consensus), E: alignment pane, F: bottom pane, displaying sequence
 	position, consensus, and conservation bar plot. \\
 	In this example the sequences are in the original (file) order, and use the
-	ClustalX colour
-scheme. the view is zoomed in, that is, only a fraction of the
+	ClustalX colour scheme. the view is zoomed in, that is, only a fraction of the
 	alignment is displayed. }
 	\label{fig:screen}
 \end{figure}
@@ -131,7 +129,8 @@ running Linux 6.14.2. In practice, interactive performance is limited more by
 the speed of the terminal emulator than by \texttt{termal} itself.
 GPU-accelerated terminals such as Alacritty\cite{alacritty}, Kitty\cite{kitty}
 and Ghostty\cite{ghostty} offer smoother scrolling at large screen sizes than do
-more traditional emulators.
+more traditional emulators, and terminals that support 24-bit colours give
+better results.
 
 
 \section*{Comparison with Existing Tools}
@@ -153,8 +152,11 @@ Interactivity & Yes (TUI) & Yes (TUI) & No & Limited (pager)  & No \\
 Supported alignment formats & Fasta & Fasta & Fasta, Clustal, Phylip, and more
 	& Fasta, Clustal & Fasta, Clustal, Phylip, and more\\
 \midrule
-\textit{Display features} \\
-Scrolling / navigation & Yes & Yes & No & No & No \\
+\textit{Navigation} \\
+Scrolling & Yes & Yes & No & No & No \\
+Regex search & No & Yes & No & No & No \\
+\midrule
+\textit{Display} \\
 Zooming & Yes & No & Partial (\texttt{-g}) & No & No \\
 Label pane width adjustment & Yes & Yes & No & No & Yes \\
 Consensus display & Yes & Yes  & No & No & Yes \\
@@ -163,11 +165,10 @@ Sequence metric bar plot & Yes  & No & No & No & No \\
 Colour schemes & Multiple & Fixed & Fixed & Customisable & No \\
 Sequence numbering & Yes & No & No & No & No \\
 \midrule
-\textit{Sorting / filtering} \\
-Sort by consensus similarity & Yes & No & No & No & No \\
+\textit{Sorting / reordering} \\
+Sort by similarity to consensus & Yes & No & No & No & No \\
 Sort by sequence length & Yes & No & No & No & No \\
 Manual row reordering & No & Yes & No & No & No \\
-Regex search & No & Yes & No & No & No \\
 \midrule
 \textit{Other} \\
 	Dependencies & None  & None & BioPython & Core shell utilities & None (installed via EMBOSS) \\
@@ -189,18 +190,19 @@ Feature comparison of some terminal-based MSA viewers. Features are considered
 \texttt{termal} is distributed under the MIT license. It is available as a
 single precompiled binary (for Linux, MacOS, and Windows), with no external
 dependencies or runtime environment required, from
-\url{gitlab.sib.swiss/tjunier/termal.git}. Alternatively, users with Rust
-installed can install it via \texttt{cargo install termal}.
+\url{https://github.com/sib-swiss/termal.git}. Alternatively, users with Rust
+installed can install it via \texttt{cargo install termal-msa}. The source code
+has also been deposited on Zenodo (\url{https://zenodo.org/records/15472432}).
 
 \section*{Conclusion}
 
 While this work is not intended as a comprehensive review of alignment viewers,
 we surveyed several tools with comparable goals — namely, terminal-native
 operation and varying degrees of interactivity — including \texttt{showalign},
-\texttt{alan}, \texttt{alv}, and \texttt{alen}.  To our knowledge,
+\texttt{alan}, \texttt{alv}\cite{Arvestad2018}, and \texttt{alen}.  To our knowledge,
 \texttt{termal} is the only tool to combine interactive navigation, zooming,
 consensus and conservation visualization, several built-in colour maps, as well
-as display of and ordering by sequence metrics in a single terminal interface.
+as display of and ordering by sequence metrics, in a single terminal interface.
 Its minimal dependencies and fast startup make \texttt{termal} suitable for both
 ad-hoc use and for integration into semi-automated workflows requiring
 terminal-based alignment review. Accordingly, \texttt{termal} fills a niche for
