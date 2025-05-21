@@ -133,57 +133,20 @@ more traditional emulators, and terminals that support 24-bit colours give
 better results.
 
 
-\section*{Comparison with Existing Tools}
+\section*{Comparison with Other \textsc{TUI} Tools}
 
-Table~\ref{tbl:comparison} presents a feature matrix for \texttt{termal} and a
-selection of other terminal-based alignment viewers.
+\subsection*{Dependencies and Installation}
 
-\begin{landscape}
-\begin{table}[ht]
-\centering
-\small
-\begin{tabularx}{\linewidth}{lXXXXX}
-\toprule
-\textbf{Feature} & \textbf{\texttt{termal}} & \textbf{\texttt{alen}} & \textbf{\texttt{alv}} & \textbf{\texttt{alan}} & \textbf{\texttt{showalign}} \\
-\midrule
-\textit{Basics} \\
-Language & Rust & Rust & Python & Shell & C \\
-Interactivity & Yes (TUI) & Yes (TUI) & No & Limited (pager)  & No \\
-Supported alignment formats & Fasta & Fasta & Fasta, Clustal, Phylip, and more
-	& Fasta, Clustal & Fasta, Clustal, Phylip, and more\\
-\midrule
-\textit{Navigation} \\
-Scrolling & Yes & Yes & No & No & No \\
-Regex search & No & Yes & No & No & No \\
-\midrule
-\textit{Display} \\
-Zooming & Yes & No & Partial (\texttt{-g}) & No & No \\
-Label pane width adjustment & Yes & Yes & No & No & Yes \\
-Consensus display & Yes & Yes  & No & No & Yes \\
-Conservation bar plot & Yes & No & No & No & No \\
-Sequence metric bar plot & Yes  & No & No & No & No \\
-Colour schemes & Multiple & Fixed & Fixed & Customisable & No \\
-Sequence numbering & Yes & No & No & No & No \\
-\midrule
-\textit{Sorting / reordering} \\
-Sort by similarity to consensus & Yes & No & No & No & No \\
-Sort by sequence length & Yes & No & No & No & No \\
-Manual row reordering & No & Yes & No & No & No \\
-\midrule
-\textit{Other} \\
-	Dependencies & None  & None & BioPython & Core shell utilities & None (installed via EMBOSS) \\
-	License & MIT & MIT & MIT & Various & GPL \\
-\bottomrule
-\end{tabularx}
-\caption{%
-Feature comparison of some terminal-based MSA viewers. Features are considered
-	present when mentioned in the manual page or program help, or when obvious
-	from the display. A "sequence metric" is a numeric property of a sequence such
-	as ungapped length (see text).
-}
-\label{tbl:comparison}
-\end{table}
-\end{landscape}
+\texttt{Termal} and \texttt{alen} are written in Rust and compile to a single
+binary with no dependencies. By contrast, \texttt{alv} requires BioPython and
+\texttt{showalign} is part of the EMBOSS suite.
+
+\subsection{Features}
+
+\texttt{Termal} features zooming, interactive navigation, selectable themes and
+color maps, as well as ordering according to metrics. This combination of
+features is not found in the other programs considered, although all of them
+offer at least some of these features.
 
 \section*{Availability}
 
@@ -199,15 +162,13 @@ has also been deposited on Zenodo (\url{https://zenodo.org/records/15472432}).
 While this work is not intended as a comprehensive review of alignment viewers,
 we surveyed several tools with comparable goals — namely, terminal-native
 operation and varying degrees of interactivity — including \texttt{showalign},
-\texttt{alan}, \texttt{alv}\cite{Arvestad2018}, and \texttt{alen}.  To our knowledge,
-\texttt{termal} is the only tool to combine interactive navigation, zooming,
-consensus and conservation visualization, several built-in colour maps, as well
-as display of and ordering by sequence metrics, in a single terminal interface.
-Its minimal dependencies and fast startup make \texttt{termal} suitable for both
-ad-hoc use and for integration into semi-automated workflows requiring
-terminal-based alignment review. Accordingly, \texttt{termal} fills a niche for
-fast, interactive MSA exploration directly in the terminal, making it an ideal
-tool for remote bioinformatics workflows.
+\texttt{alan}, \texttt{alv}\cite{Arvestad2018}, and \texttt{alen}.  To our
+knowledge, \texttt{termal} combines a unique set of features in a terminal
+interface.  Its minimal dependencies and fast startup make \texttt{termal}
+suitable for both ad-hoc use and for integration into semi-automated workflows
+requiring terminal-based alignment review. Accordingly, \texttt{termal} fills a
+niche for fast, interactive MSA exploration directly in the terminal, making it
+an ideal tool for remote bioinformatics workflows.
 
 \section*{Acknowledgements}
 
