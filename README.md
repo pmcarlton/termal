@@ -87,7 +87,7 @@ $ termal data/aln4.pep
 
 **Notes**
 
-1. The above example appears in monochrome due to Markdown rendring, but by default Termal uses colours, e.g. to reflect amino acid chemistry.
+1. The above example appears in monochrome due to Markdown rendering, but by default Termal uses colours, e.g. to reflect amino acid chemistry.
 2. The above example had to be slightly tweaked because the separation line between the main and bottom panel is rendered too wide in some Markdown engines.
 
 
