@@ -19,7 +19,7 @@ alignment (see below). Press "`?`" for help.
 
 ### Linux (x86_64)
 
-* [Download](https://github.com/sib-swiss/termal/releases/download/v1.1.0/termal-v1.0.0-linux-x86_64.tar.gz)
+* [Download](https://github.com/sib-swiss/termal/releases/download/v1.1.0/termal-v1.1.0-linux-x86_64.tar.gz)
 
 ```bash
 tar -xzf termal-v1.1.0-linux-x86_64.tar.gz
@@ -30,7 +30,7 @@ tar -xzf termal-v1.1.0-linux-x86_64.tar.gz
 
 ### Windows
 
-* [Download](https://github.com/sib-swiss/termal/releases/download/v1.1.0/termal-v1.0.0-windows-x86_64.zip)
+* [Download](https://github.com/sib-swiss/termal/releases/download/v1.1.0/termal-v1.1.0-windows-x86_64.zip)
 
 1. Unzip the archive
 2. Open a terminal and run:
@@ -43,7 +43,7 @@ termal.exe example-1.msa
 
 ### macOS
 
-* [Download](https://github.com/sib-swiss/termal/releases/download/v1.1.0/termal-v1.0.0-macos-x86_64.tar.gz)
+* [Download](https://github.com/sib-swiss/termal/releases/download/v1.1.0/termal-v1.1.0-macos-x86_64.tar.gz)
 
 ```bash
 tar -xzf termal-v1.1.0-macos-x86_64.tar.gz
