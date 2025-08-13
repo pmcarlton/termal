@@ -142,7 +142,10 @@ fn main() -> Result<(), TermalError> {
 
     // TODO: rename to seq_file, since we are no longer limited to FastA.
     if let Some(seq_filename) = &cli.aln_fname {
-        let seq_file = read_fasta_file(seq_filename)?;
+        let seq_file = match cli.format {
+            SeqFileFormat::FastA =>  read_fasta_file(seq_filename)?,
+            SeqFileFormat::Stockholm =>  read_stockholm_file(seq_filename)?,
+        };
         let alignment =  Alignment::new(seq_file);
         let mut app = App::new(seq_filename, alignment);
 
