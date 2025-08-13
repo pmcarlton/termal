@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 Thomas Junier
+
 use std::fmt;
 
 
-use crate::fasta::read_fasta_file;
+use crate::seq::fasta::read_fasta_file;
 
 use crate::{
     alignment::Alignment,

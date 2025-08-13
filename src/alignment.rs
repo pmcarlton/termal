@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 Thomas Junier
+
 mod permutation;
 
 use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::fasta::FastaFile;
+use crate::seq::file::SeqFile;
 
 use crate::alignment::SeqType::{Nucleic, Protein};
 
@@ -54,7 +55,7 @@ struct BestResidue {
 
 impl Alignment {
     // Makes an Alignment from a FastaFile, which is consumed.
-    pub fn new(fasta: FastaFile) -> Alignment {
+    pub fn new(fasta: SeqFile) -> Alignment {
         let mut headers: Vec<String> = Vec::new();
         let mut sequences: Vec<String> = Vec::new();
         for record in fasta {
@@ -241,7 +242,7 @@ mod tests {
     use crate::alignment::{
         best_residue, consensus, densities, entropies, entropy, percent_identity, res_count, seq_len_nogaps, seq_type, to_freq_distrib, Alignment, BestResidue, ResidueCounts, ResidueDistribution, SeqType::{Nucleic, Protein},
     };
-    use crate::fasta::read_fasta_file;
+    use crate::seq::fasta::read_fasta_file;
     use approx::assert_relative_eq;
     use std::collections::HashMap;
 
