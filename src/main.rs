@@ -4,7 +4,7 @@ mod alignment;
 mod app;
 mod ui;
 mod vec_f64_aux;
-mod fasta;
+mod seq;
 
 use log::{debug, info};
 
