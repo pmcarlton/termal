@@ -11,6 +11,7 @@ use crate::{
     alignment::Alignment,
     app::SeqOrdering::{SourceFile, MetricIncr, MetricDecr},
     app::Metric::{PctIdWrtConsensus, SeqLen},
+    errors::TermalError,
 };
 
 #[derive(Clone, Copy)]
@@ -61,7 +62,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(path: &str) -> Result<App, std::io::Error> {
+    pub fn new(path: &str) -> Result<App, TermalError> {
         let fasta_file = read_fasta_file(path)?;
         let alignment =  Alignment::new(fasta_file);
         let len = alignment.num_seq();
