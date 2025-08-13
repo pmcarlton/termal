@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 Thomas Junier
+
 mod alignment;
 mod app;
 mod ui;
 mod vec_f64_aux;
 mod seq;
+mod errors;
 
 use log::{debug, info};
 
-use std::io::{stdout, Result};
+use std::io::stdout;
 //use std::process::exit;
 
 use clap::{arg, command, Parser};
@@ -31,6 +33,7 @@ use crate::ui::{
     render::render_ui,
     {ZoomLevel, UI},
 };
+use crate::errors::TermalError;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None) ]
@@ -95,7 +98,7 @@ struct Cli {
     no_zb_guides: bool,
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), TermalError> {
     env_logger::init();
     info!("Starting log");
 
@@ -109,6 +112,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    // TODO: rename to seq_file, since we are no longer limited to FastA.
     if let Some(fasta_file) = &cli.aln_fname {
         let mut app = App::new(fasta_file)?;
 
