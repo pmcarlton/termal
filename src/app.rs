@@ -5,6 +5,7 @@ use std::fmt;
 
 
 use crate::seq::fasta::read_fasta_file;
+use crate::seq::stockholm::read_stockholm_file;
 
 use crate::{
     alignment::Alignment,
