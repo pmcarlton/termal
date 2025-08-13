@@ -5,10 +5,11 @@ use std::fs::File;
 use std::path::Path;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
 
+use crate::errors::TermalError;
 use crate::seq::record::SeqRecord;
 use crate::seq::file::SeqFile;
 
-pub fn read_stockholm_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, std::io::Error> {
+pub fn read_stockholm_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, TermalError> {
     let file = File::open(path)?;
     let mut result: SeqFile = Vec::new();
 
@@ -28,7 +29,7 @@ pub fn read_stockholm_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, std::io::
                         result.push(record);
                     }
                     // TODO: use a specific kind of Error for this, not a std::io::Error.
-                    _ => return Err(Error::new(ErrorKind::InvalidData, "Expected exactly two fields"))
+                    _ => return Err(TermalError::Format(String::from("Expected two fields"))),
                 }
             }
         }
