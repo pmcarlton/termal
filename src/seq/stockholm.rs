@@ -3,7 +3,7 @@
 
 use std::fs::File;
 use std::path::Path;
-use std::io::{BufRead, BufReader, Error, ErrorKind};
+use std::io::{BufRead, BufReader};
 
 use crate::errors::TermalError;
 use crate::seq::record::SeqRecord;

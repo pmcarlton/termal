@@ -7,7 +7,6 @@ use crate::{
     alignment::Alignment,
     app::SeqOrdering::{SourceFile, MetricIncr, MetricDecr},
     app::Metric::{PctIdWrtConsensus, SeqLen},
-    errors::TermalError,
 };
 
 #[derive(Clone, Copy)]
