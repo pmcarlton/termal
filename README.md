@@ -9,6 +9,7 @@ Termal is a program for examining multiple sequence **al**ignments in a **term**
 
 * No installer (just download and uncompress)
 * No dependencies
+* Reads FastA and Stockholm formats
 * Best results in a fast terminal that supports 24-bit ("true color") color
   (see LIMITATIONS below for details).
 
