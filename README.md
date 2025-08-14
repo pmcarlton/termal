@@ -62,8 +62,14 @@ Synopsis
 Just pass your alignment as argument to the `termal` binary:
 
 ```bash
-$ termal [options] <alignment>
+<span style="user-select: none;">$ </span>termal [options] <alignment>
 ```
+
+For help, just do
+
+```bash
+$ termal -h # or --help
+``` 
 
 Interface
 =========
@@ -192,9 +198,9 @@ $ termal data/aln4.pep
 1. The above example appears in monochrome due to limitations in Markdown
    rendering, but by default Termal uses colours, e.g. to reflect amino acid
    chemistry.
-2. The above example had to be slightly tweaked because the separation line
-   between the main and bottom panel is rendered too wide in some Markdown
-   engines.
+2. The above example is rendered correctly by GitHub's Markdown engine, but
+   others may incorrectly render some characters, resulting in incorrect line
+   lengths.
 
 Motivations
 ===========
@@ -213,8 +219,8 @@ for two reasons:
 Like for any other input data, it's a good idea to have a quick look at an
 alignment before it is fed to an analysis pipeline. There are many fine tools
 for doing this, but most of them have a graphical user interface, so they
-  (usually) can't be used over SSH. A multiple sequence alignment is basically
-  just text, so it is well suited for a text interface.
+(usually) can't be used over SSH. A multiple sequence alignment is basically
+just text, so it is well suited for a text interface.
 
 Secondary
 ---------
