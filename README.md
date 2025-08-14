@@ -116,6 +116,7 @@ Termal has the basic features you'd expect of an alignment viewer, such as:
 * consensus sequence
 * residue coloring
 * representation of conservation
+* ordering of sequences by length or similarity to consensus
 
 Zooming
 -------
@@ -128,16 +129,15 @@ alignment, there are two options:
 * Scrolling: this simply shifts the displayed portion ("view port") of the
   alignment left, right, up, or down. One can move by a single line (sequence)
   or column (position), by screenfuls, or directly to the top, bottom, leftmost,
-  or rightmost positions. This is done with the motion keys, including arrows
+  or rightmost positions. This is done with the motion keys, including arrows.
 
 * Zooming Out: this shows the first and last sequences, as well as evenly-spaced
   sequences in between so as to show as many sequences as possible. The same
   sampling is applied to columns. A box shows the location of the view port,
   that is, what part of the alignment would fill the alignment area when zooming
   back in. The zoom box can be moved using the same commands as for scrolling
-  (see above). A variant of zooming out will sample rows and columns will
-  preserve the aspect ratio of the alignment, at the expense of potentially
-  fewer sequences or columns shown.
+  (see above). A variant of zooming out will preserve the aspect ratio of the
+  alignment, at the expense of potentially fewer sequences or columns shown.
 
 Colors and Themes
 -----------------
@@ -179,7 +179,7 @@ $ termal data/aln4.pep
 │14│Osp1_01723 │ELTDGFHVLKDVLKVNGIDTMYGVVGIPITNLARLWEQDGQKFYSFRHEQHAGYAASIAGYIHGDKPGVC│
 │15│Osp2_01577 │ELTDGFHVLMDTLKMNDIDTMYGVVGIPITNLARLWEQDGQKFYSFRHEQHAGYAASIAGYIQGDKPGVC│
 │16│Osp3_01912 │ELTDGFHVLIDALKMNDIDTMYGVVGIPITNLARLWQDDGQRFYSFRHEQHAGYAASIAGYIEG-KPGVC│
-└──└───────────└🬹🬹🬹🬹🬹🬹🬹🬹🬹═══════════════════════════════════════════════════════┘
+└──└───────────└🬹🬹🬹🬹🬹🬹🬹🬹🬹═════════════════════════════════════════════════════════════┘
 │              │|    :    |    :    |    :    |    :    |    :    |    :    |    :    │
 │Position      │0        10        20        30        40        50        60        7│
 │Consensus     │elTDGFHlvIDALKlNgIdtiYGvpGIPITdLaRlaqadGmrviSFRHEQnAGyAAaIAGyltk-KPGVC│
@@ -189,8 +189,9 @@ $ termal data/aln4.pep
 
 **Notes**
 
-1. The above example appears in monochrome due to Markdown rendering, but by
-   default Termal uses colours, e.g. to reflect amino acid chemistry.
+1. The above example appears in monochrome due to limitations in Markdown
+   rendering, but by default Termal uses colours, e.g. to reflect amino acid
+   chemistry.
 2. The above example had to be slightly tweaked because the separation line
    between the main and bottom panel is rendered too wide in some Markdown
    engines.
