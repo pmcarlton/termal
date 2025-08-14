@@ -89,7 +89,7 @@ z,Z: cycle through zoom modes
 
 <,>: widen/narrow label pane
 a  : hide/show label pane
-c  : hode/show consensus pane
+c  : hide/show consensus pane
 f  : toggle fullscreen alignment pane
 
 ### Video
