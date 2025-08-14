@@ -65,11 +65,12 @@ impl Alignment {
             sequences.push(record.sequence);
             if l > max_len { max_len = l; }
         }
-        // Pad any sequence shorter than max_len
-        for s in &mut sequences {
-            *s = format!("{:<width$}", s, width = max_len);
-        }
-
+        // Pad any sequence shorter than max_len, so we are not limited to alignments with exactly
+        // identical numbers of positions (reviewer suggestion).
+        sequences
+            .iter_mut()
+            .for_each(|s| *s = format!("{:<width$}", s, width = max_len));
+        // NOTE: the 's' can also be written '&*s', which makes the automatic re-borrow explicit.
         let consensus = consensus(&sequences);
         let entropies = entropies(&sequences);
         let densities = densities(&sequences);
