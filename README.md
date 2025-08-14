@@ -78,8 +78,8 @@ the console, run `termal -b`. The main bindings are as follows:
 
 ### Motion
 
-arrows: scroll 1 column/line; shift-arrows : scroll 1 screenful
-        `h`,`j`,`k`,`l` are aliases for left, down, up, and right arrow
+arrows: scroll 1 column/line; shift-arrows : scroll 1 screenful \
+`h`,`j`,`k`,`l` are aliases for left, down, up, and right arrow \
 `^`,`G`,`g`,`$`: full left, bottom, top, full right
 
 ### Zooming
