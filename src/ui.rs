@@ -347,7 +347,11 @@ impl<'a> UI<'a> {
             ZoomLevel::ZoomedOut => ((self.top_line as f64) * self.v_ratio()).floor() as usize,
             ZoomLevel::ZoomedOutAR => {
                 let ratio = self.common_ratio();
-                ((self.top_line as f64) * ratio).floor() as usize
+                let mut zb_top = ((self.top_line as f64) * ratio).floor() as usize;
+                if zb_top >= self.max_nb_seq_shown() as usize {
+                    zb_top = (self.max_nb_seq_shown() as usize) - 1;
+                }
+                zb_top
             }
             _ => panic!(
                 "zoombox_top() should not be called in {:?} mode\n",
