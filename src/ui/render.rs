@@ -351,7 +351,6 @@ fn mark_zoombox_point(
     zb_style: Style,
 ) {
     let l: &mut Line = &mut seq_para[zb_top];
-    debug!("mark_zoombox_point(): zb_left = {zb_left}");
     let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("▯", zb_style));
 }
 
