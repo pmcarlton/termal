@@ -57,6 +57,9 @@ Tested on:
 - macOS 10.13.6 (High Sierra)
 - Windows 11
 
+Known to compile with Rust 1.79 and newer; may compile on earlier versions (not
+checked).
+
 Synopsis
 ========
 

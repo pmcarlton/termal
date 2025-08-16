@@ -4,15 +4,6 @@
  crates.io, GitHub, and Zenodo, including binary artifacts and citation
  metadata.
 
-## 0) Scope & assumptions
-
-* Project name: **termal** (terminal MSA viewer).
-* VCS: Git + GitHub (default branch: `master`).
-* CI: GitHub Actions builds/test on push & tag; release workflow builds binaries and uploads assets.
-* Packaging: publish source crate to **crates.io**; create a **GitHub Release** with prebuilt binaries; **Zenodo** auto-archives GitHub releases.
-
-> Tip: Keep this file in the repo as `.github/RELEASE_SOP.md` and link it from `CONTRIBUTING.md`.
-
 ---
 
 ## 1) Choose the version & plan the release
@@ -23,6 +14,7 @@
   * **PATCH**: bug fixes, docs, no API/CLI breaking changes.
   * **MINOR**: backward-compatible features.
   * **MAJOR**: breaking changes (CLI flags/behavior, MSRV bump, file formats).
+
 * Create or update a GitHub **milestone** for `vX.Y.Z` and make sure targeted issues/PRs are closed or moved.
 
 ---
