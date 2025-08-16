@@ -82,10 +82,10 @@ impl App {
     fn recompute_ordering(&mut self) {
         match self.ordering_criterion {
             MetricIncr => {
-                self.ordering = order(&self.order_values());
+                self.ordering = order(self.order_values());
             }
             MetricDecr => {
-                let mut ord = order(&self.order_values());
+                let mut ord = order(self.order_values());
                 ord.reverse();
                 self.ordering = ord;
             }

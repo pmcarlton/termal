@@ -81,7 +81,7 @@ impl Alignment {
             .map(|seq| percent_identity(seq, &consensus))
             .collect();
         let relative_seq_len = sequences.iter().map(|seq| seq_len_nogaps(seq)).collect();
-        let first_seq = sequences.iter().nth(0);
+        let first_seq = sequences.first();
         let macromolecule_type = seq_type(first_seq.expect("No sequence found."));
 
         Alignment {
@@ -216,14 +216,15 @@ fn entropy(freqs: &ResidueDistribution) -> f64 {
             p * p.ln()
         })
         .sum();
-    -1.0 * sum
+
+    -sum
 }
 
 fn percent_identity(s1: &str, s2: &str) -> f64 {
     let num_identical = s1
         .chars()
         .zip(s2.chars())
-        .filter(|(c1, c2)| c1.to_ascii_uppercase() == c2.to_ascii_uppercase())
+        .filter(|(c1, c2)| c1.eq_ignore_ascii_case(c2))
         .count();
     num_identical as f64 / s1.len() as f64
 }
@@ -362,7 +363,11 @@ mod tests {
     fn test_entropy_2() {
         let eps = 0.00001;
         let distrib: ResidueDistribution = ResidueDistribution::from([('A', 0.5), ('F', 0.5)]);
-        assert_relative_eq!(0.6931471805599453, entropy(&distrib), epsilon = eps);
+        // This should be ln(2), and as it happens Rust has a constant for this; remarkably, clippy
+        // detects the literal constant below and suggests using the (arguably more accurate)
+        // built-in definition.
+        // assert_relative_eq!(0.6931471805599453, entropy(&distrib), epsilon = eps);
+        assert_relative_eq!(std::f64::consts::LN_2, entropy(&distrib), epsilon = eps);
     }
 
     #[test]
@@ -470,6 +475,6 @@ mod tests {
     #[test]
     fn test_unequal_seq_len() {
         let fasta = read_fasta_file("./data/test5.aln").unwrap();
-        let aln1 = Alignment::new(fasta);
+        let _ = Alignment::new(fasta);
     }
 }

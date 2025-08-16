@@ -134,6 +134,7 @@ impl<'a> UI<'a> {
 
     fn max_nb_seq_shown(&self) -> u16 {
         let height = self.aln_pane_size.unwrap().height;
+        /*
         if height >= 2 {
             // border, should later be a constant or a field of UI
             height - 2
@@ -145,15 +146,13 @@ impl<'a> UI<'a> {
             // Then do the same for max_nb_col_shown().
             0
         }
+        */
+        height.saturating_sub(2)
     }
 
     fn max_nb_col_shown(&self) -> u16 {
         let width = self.aln_pane_size.unwrap().width;
-        if width >= 2 {
-            width - 2
-        } else {
-            0
-        }
+        width.saturating_sub(2)
     }
 
     // Resizing (as when the user resizes the terminal window where Termal runs) affects
@@ -217,11 +216,7 @@ impl<'a> UI<'a> {
 
     pub fn reduce_label_pane(&mut self, amount: u16) {
         // TODO: heed the border width (not sure if we'll keep them)
-        self.label_pane_width = if self.label_pane_width > amount {
-            self.label_pane_width - amount
-        } else {
-            0
-        }
+        self.label_pane_width = self.label_pane_width.saturating_sub(amount);
     }
 
     // Bottom pane dimensions

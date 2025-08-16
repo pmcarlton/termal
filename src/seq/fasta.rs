@@ -19,7 +19,7 @@ pub fn read_fasta_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, std::io::Erro
 
     for line in BufReader::new(file).lines() {
         let l: String = line.unwrap();
-        if l.starts_with(">") {
+        if let Some(hdr) = l.strip_prefix(">") {
             if first_header {
                 first_header = false;
             } else {
@@ -30,7 +30,7 @@ pub fn read_fasta_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, std::io::Erro
                 header: String::new(),
                 sequence: String::new(),
             };
-            current_record.header.push_str(&l[1..]);
+            current_record.header.push_str(hdr);
         } else {
             // append line to current record'd sequence
             current_record.sequence.push_str(&l);

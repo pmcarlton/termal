@@ -164,14 +164,11 @@ fn get_residue_style(video_mode: VideoMode, theme: Theme, color: Color) -> Style
         }
     }
 
-    match video_mode {
-        VideoMode::Inverse => {
-            style = style.add_modifier(Modifier::REVERSED);
-            if Theme::Light == theme {
-                style = style.bg(Color::Black);
-            }
+    if video_mode == VideoMode::Inverse {
+        style = style.add_modifier(Modifier::REVERSED);
+        if Theme::Light == theme {
+            style = style.bg(Color::Black);
         }
-        _ => {}
     }
 
     style
@@ -190,6 +187,9 @@ fn zoom_in_seq_text<'a>(ui: &'a UI) -> Vec<Line<'a>> {
     let colormap = ui.color_scheme().current_residue_colormap();
     let ordering = &ui.app.ordering;
 
+    // NOTE: clippy suggests using an iterator, but as elsewhere I'm not convinced the needless
+    // iterations would not slow down the rendering.
+    #[allow(clippy::needless_range_loop)]
     for i in top_i..bot_i {
         if i >= ui.app.num_seq().into() {
             break;
@@ -389,6 +389,8 @@ fn mark_zoombox(seq_para: &mut [Line], ui: &UI) {
     }
 }
 
+// TODO: guides (as well as the whole consensus-at-the-bottom idea) are arguably obsolete.
+
 // Draws guides from the scale to the zoom box (hence, only meaningful in one of the zoomed-out
 // modes, and only if there are empty lines). TODO: to avoid having to specify a lifetime, try
 // passing relevant info (i.e., seq_para's length, zoombox's left and right cols, etc.)
@@ -420,9 +422,7 @@ fn draw_zoombox_guides<'a>(aln_bottom: usize, aln_len: usize, ui: &'a UI<'a>) ->
         let left_guide_col = left_guide_pos(j);
         let right_guide_col = right_guide_pos(j);
         for i in 0..ui.max_nb_col_shown() as usize {
-            if i == left_guide_col {
-                line.push('.');
-            } else if i == right_guide_col {
+            if i == left_guide_col || i == right_guide_col {
                 line.push('.');
             } else {
                 line.push(' ');
@@ -524,9 +524,8 @@ fn max_num_seq(f: &Frame, ui: &UI) -> u16 {
                 "max #seq: {}",
                 (ui.app.num_seq() as f64 * ratio).round() as u16
             );
-            let max_num_seq = (ui.app.num_seq() as f64 * ratio).round() as u16;
 
-            max_num_seq
+            (ui.app.num_seq() as f64 * ratio).round() as u16
         }
     }
 }
@@ -845,7 +844,7 @@ fn render_corner_pane(f: &mut Frame, corner_chunk: Rect, ui: &UI) {
         format!(
             "{} {}",
             ui.app.get_metric(),
-            ui.app.get_seq_ordering().to_string()
+            ui.app.get_seq_ordering()
         ),
         metric_text_style,
     ))
