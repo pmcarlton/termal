@@ -196,7 +196,7 @@ fn main() -> Result<(), TermalError> {
         }
 
         if let Some(path) = cli.color_map {
-            let _cmap = colormap_gecos(path.into());
+            let _cmap = colormap_gecos(path);
             // TODO: add to colormaps (and remove the underscore)
         }
 
