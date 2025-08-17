@@ -68,13 +68,10 @@ cargo package --list | less              # inspect files to be uploaded
 
 ## 4) Build release artifacts locally (sanity check)
 
-> CI will produce the official binaries, but a quick local build helps catch issues early.
+CI will produce the official binaries, but a quick local build helps catch issues early.
 
 ```bash
-# Example local builds
 cargo build --release
-# Optional: generate shell completions if supported by your CLI framework
-# target/release/termal --generate-completions bash > completions/termal.bash
 ```
 
 Smoke test with the example alignment:
