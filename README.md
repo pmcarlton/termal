@@ -25,7 +25,7 @@ alignment (see below). Press "`?`" for help.
 
 ```bash
 $ tar -xzf termal-v1.1.0-linux-x86_64.tar.gz
-./termal data/example-1.msa
+$ ./termal data/example-1.msa
 ```
 
 ---
@@ -49,13 +49,20 @@ C:\Users\User> termal.exe example-1.msa
 
 ```bash
 $ tar -xzf termal-v1.1.0-macos-x86_64.tar.gz
-./termal data/example-1.msa
+$ xattr -d com.apple.quarantine ./termal
+$ ./termal data/example-1.msa
 ```
 
+**NOTE**: The `xattr` command removes the "quarantine flag". This is required
+for binaries to run unless they're "official" (signed/notarized  by Apple). This
+can also be done by opening _System Settings -> Privacy & Security_. 
+
 Tested on:
+==========
+
 - Linux (EndeavourOS Build-ID 2024-01-15)
-- macOS 10.13.6 (High Sierra)
 - Windows 11
+- macOS 10.13.6 (High Sierra) and 15.1 (Sequoia)
 
 Known to compile with Rust 1.79 and newer; may compile on earlier versions (not
 checked).
