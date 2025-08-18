@@ -101,9 +101,18 @@ git push origin master
 git push origin vX.Y.Z
 ```
 
+This should automatically propagate to Zenodo, once the new release is on
+GitHub. This is configured in Zenodo, not GitHub.
+
+
 ---
 
 ## 6) crates.io publish (source crate)
+
+**NOTE** Crates.io tokens have a limited shelf life. In case of authorization
+problems, it may be necessary to create a new token. Just log into Crates.io
+(using te Github account), and create a new token. Also, do a `cargo logout`
+then a `cargo login` with the new token.
 
 > Publishing after pushing the tag ensures docs and links are consistent with the release.
 
