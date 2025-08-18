@@ -68,10 +68,12 @@ cargo package --list | less              # inspect files to be uploaded
 
 ## 4) Build release artifacts locally (sanity check)
 
-CI will produce the official binaries, but a quick local build helps catch issues early.
+CI will produce the official binaries (see `./github/workflows/release.yaml`) ,
+but a quick local build helps catch issues early.
 
 ```bash
-cargo build --release
+# --lock makes sure `Cargo.lock` won't need any changes
+cargo build --release --lock
 ```
 
 Smoke test with the example alignment:
@@ -84,10 +86,10 @@ Smoke test with the example alignment:
 
 ## 5) Tag the release & push
 
-> CI is triggered by a **tag**. Commit all changes (version bump, changelog, docs), then tag.
+> CI is triggered by a **tag**. Commit all changes (version bump, changelog,
+> docs), then tag.
 
 ```bash
-git checkout -b release/vX.Y.Z
 git add -A
 git commit -m "release: vX.Y.Z"
 # Create an annotated (or signed) tag
