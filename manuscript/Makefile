@@ -1,6 +1,9 @@
 .PHONY: clean zip
 
-all: cover_letter.pdf termal.pdf termal-preprint.pdf
+all: cover_letter.pdf termal.pdf termal-preprint.pdf cover_letter_revision.pdf
+
+cover_letter_revision.pdf: cover_letter_revision.tex
+	xelatex $<
 
 cover_letter.pdf: cover_letter.tex
 	xelatex $<

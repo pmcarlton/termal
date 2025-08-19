@@ -1,3 +1,8 @@
+Dear Editors,
+
+Thank you for the constructive and insightfule comments. Please find my
+responses blow.
+
 > The authors present a new tool for visualisation of multiple sequence alignments
 > from the terminal. As the authors note, although other tools have already been
 > developed for this specific purpose, their tool does offer a convenient and fast
