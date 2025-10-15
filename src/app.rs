@@ -100,8 +100,21 @@ impl App {
                 self.ordering = (0..self.alignment.num_seq()).collect();
             }
             User => {
-                let mut id2rank: HashMap<String, usize> = HashMap::new();
-
+                match &self.user_ordering {
+                    None => {
+                        // Keep file order if no user-supplied order
+                        self.ordering = (0..self.alignment.num_seq()).collect();
+                    }
+                    Some(uord_vec) => {
+                        // Techncally, we could index by &str, but I'm not sure we'd gain a lot.
+                        let mut id2rank: HashMap<String, usize> = HashMap::new();
+                        for (idx, hdr) in self.alignment.headers
+                            .iter().enumerate() {
+                                id2rank.insert(hdr.to_string(), idx);
+                        }
+                        // Iterate over ordering, looking up file index from the above hash.
+                    }
+                }
             }
         }
     }
