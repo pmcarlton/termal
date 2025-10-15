@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 Thomas Junier
 
-use std::fmt;
+use std::{
+    collections::HashMap,
+    fmt,
+};
 
 use crate::{
     alignment::Alignment,
     app::Metric::{PctIdWrtConsensus, SeqLen},
-    app::SeqOrdering::{MetricDecr, MetricIncr, SourceFile},
+    app::SeqOrdering::{MetricDecr, MetricIncr, SourceFile, User},
 };
 
 #[derive(Clone, Copy)]
@@ -14,6 +17,7 @@ pub enum SeqOrdering {
     SourceFile,
     MetricIncr,
     MetricDecr,
+    User,
 }
 
 impl fmt::Display for SeqOrdering {
@@ -22,6 +26,7 @@ impl fmt::Display for SeqOrdering {
             SourceFile => '-',
             MetricIncr => '↑',
             MetricDecr => '↓',
+            User       => 'u',
         };
         write!(f, "{}", sord)
     }
@@ -50,14 +55,15 @@ pub struct App {
     metric: Metric,
     // Specifies in which order the aligned sequences should be displayed. The elements of this Vec
     // are _indices_ into the Vec's of headers and sequences that together make up the alignment.
-    // By default, they are just ordered from 1 to aln-width - 1, but the user can choose to order
+    // By default, they are just ordered from 0 to num_seq - 1, but the user can choose to order
     // according to the current metric, in which case the ordering becomes that of the metric's
     // value for each sequence.
     pub ordering: Vec<usize>,
+    user_ordering: Option<Vec<String>>,
 }
 
 impl App {
-    pub fn new(path: &str, alignment: Alignment) -> Self {
+    pub fn new(path: &str, alignment: Alignment, usr_ord: Option<Vec<String>>) -> Self {
         let len = alignment.num_seq();
         App {
             filename: path.to_string(),
@@ -65,6 +71,7 @@ impl App {
             ordering_criterion: SourceFile,
             metric: PctIdWrtConsensus,
             ordering: (0..len).collect(),
+            user_ordering: usr_ord,
         }
     }
 
@@ -92,6 +99,10 @@ impl App {
             SourceFile => {
                 self.ordering = (0..self.alignment.num_seq()).collect();
             }
+            User => {
+                let mut id2rank: HashMap<String, usize> = HashMap::new();
+
+            }
         }
     }
 
@@ -99,7 +110,8 @@ impl App {
         self.ordering_criterion = match self.ordering_criterion {
             SourceFile => MetricIncr,
             MetricIncr => MetricDecr,
-            MetricDecr => SourceFile,
+            MetricDecr => User,
+            User       => SourceFile, 
         };
         self.recompute_ordering();
     }
@@ -127,6 +139,7 @@ impl App {
         self.metric
     }
 
+    // TODO: rename to order_by_metric
     pub fn order_values(&self) -> &Vec<f64> {
         match self.metric {
             PctIdWrtConsensus => &self.alignment.id_wrt_consensus,
