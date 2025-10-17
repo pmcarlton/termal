@@ -10,7 +10,7 @@ environments.
 ##  Installation
 
 ```bash
-cargo install termal
+cargo install termal-msa
 ```
 
 ---
@@ -22,8 +22,16 @@ Once installed, run:
 ```bash
 termal <my-alignment>
 ```
+where `my-alignment` is a multiple alignment in Fasta or Stockholm format.
 
-Press `?` while running to see key bindings.
+For help, run
+
+```bash
+termal -h
+```
+
+Or press `?` while running to see key bindings.
+
 
 ---
 
@@ -32,8 +40,10 @@ Press `?` while running to see key bindings.
 - Zoomed-in and zoomed-out views of the alignment
 - Consensus sequence display
 - Sequence metrics such as ungapped length and similarity to consensus
-- Ordering by metrics
-- Residue coloring and conservation indicators
+- Ordering by metrics 
+- Conservation indicators
+- Color maps for nucleotides and amino acids
+- Color themes
 - Full keyboard control, no mouse required
 
 Best results in a dark-themed terminal.
