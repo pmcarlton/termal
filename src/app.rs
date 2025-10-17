@@ -102,17 +102,36 @@ impl App {
             User => {
                 match &self.user_ordering {
                     None => {
-                        // Keep file order if no user-supplied order
-                        self.ordering = (0..self.alignment.num_seq()).collect();
+                        // Do not change ordering if no user ordering provided; better yet: prevent
+                        // ordering_criterion from being set to User if no user ordering was
+                        // provided.
                     }
                     Some(uord_vec) => {
-                        // Techncally, we could index by &str, but I'm not sure we'd gain a lot.
-                        let mut id2rank: HashMap<String, usize> = HashMap::new();
+                        // Technically, we could index by &str, but I'm not sure we'd gain a lot.
+                        let mut hdr2rank: HashMap<String, usize> = HashMap::new();
                         for (idx, hdr) in self.alignment.headers
                             .iter().enumerate() {
-                                id2rank.insert(hdr.to_string(), idx);
+                                hdr2rank.insert(hdr.to_string(), idx);
                         }
                         // Iterate over ordering, looking up file index from the above hash.
+                        let mut result: Vec<usize> = Vec::new();
+                        for hdr in uord_vec.iter() {
+                            match hdr2rank.get(hdr) {
+                                Some(rank) => result.push(*rank),
+                                None       => break,
+                            }
+                            
+                        }
+                        // If result's length is not the same as the number of sequences in the
+                        // alignment, there was a problem (most likely a header was not found in
+                        // the hdr2rank hash above) -> do nothing. TODO: warn the user, if possible
+                        // once and for all and as early as possible (if user passes -o, do the
+                        // check as soon as we have an Alignment struct).
+                        if result.len() == self.alignment.headers.len() {
+                            self.ordering = result;
+                        } else {
+                            // TODO: warn user (see above)
+                        }
                     }
                 }
             }
