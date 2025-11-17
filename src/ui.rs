@@ -471,12 +471,15 @@ impl<'a> UI<'a> {
         self.current_color_scheme_index = self.color_schemes.len() - 1;
     }
 
-    // FIXME: this method is in the singular, but the one it delegates to is in the plural. Call it
-    // next_... instead of cycle_... Also change other cycle*, replace with next_ and prev_.
-
-    pub fn cycle_colormap(&mut self) {
+    pub fn next_colormap(&mut self) {
+        // FIXME Can't this be done in 1 line?
         let cs: &mut ColorScheme = self.color_scheme_mut();
-        cs.cycle_colormaps();
+        cs.next_colormap();
+    }
+
+    pub fn prev_colormap(&mut self) {
+        let cs: &mut ColorScheme = self.color_scheme_mut();
+        cs.prev_colormap();
     }
 
     pub fn toggle_video_mode(&mut self) {

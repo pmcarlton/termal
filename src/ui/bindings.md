@@ -10,7 +10,7 @@ arrows: scroll 1 column/line; shift-arrows : scroll 1 screenful
 
 ## Zooming
 
-z,Z: cycle through zoom modes
+z,Z: next/previous zoom mode
 
 ## Adjusting the Panes
 
@@ -22,7 +22,7 @@ f  : toggle fullscreen alignment pane
 ## Video
 
 s: next color scheme
-m: next color map
+m,M: next/previous color map
 i: toggle inverse/direct video
 
 Try dark/inverse for best results (this is the default).

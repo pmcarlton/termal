@@ -181,8 +181,11 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
 
             KeyCode::Char('s') => ui.next_color_scheme(),
 
-            // Cycle through colormaps
-            KeyCode::Char('m') => ui.cycle_colormap(),
+            // Switch to next colormap in the list
+            KeyCode::Char('m') => ui.next_colormap(),
+
+            // Switch to next colormap in the list
+            KeyCode::Char('M') => ui.prev_colormap(),
 
             // Sequence Order
             KeyCode::Char('o') => ui.cycle_ordering_criterion(),

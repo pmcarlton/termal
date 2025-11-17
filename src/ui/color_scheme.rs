@@ -131,9 +131,16 @@ impl ColorScheme {
         &(self.residue_colormaps[self.residue_colormap_index])
     }
 
-    pub fn cycle_colormaps(&mut self) {
+    pub fn next_colormap(&mut self) {
         let size = self.residue_colormaps.len();
         self.residue_colormap_index += 1;
+        self.residue_colormap_index %= size;
+    }
+
+    pub fn prev_colormap(&mut self) {
+        let size = self.residue_colormaps.len();
+        // Add size -> no need to check for < 0
+        self.residue_colormap_index += size - 1; 
         self.residue_colormap_index %= size;
     }
 }
