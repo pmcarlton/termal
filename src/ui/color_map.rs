@@ -268,7 +268,7 @@ pub fn color_map_jalview_nt() -> ColorMap {
     )
 }
 
-pub fn colormap_gecos(path: String) -> ColorMap {
+pub fn colormap_gecos(path: &str) -> ColorMap {
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);
     let cm: serde_json::Value = serde_json::from_reader(reader).unwrap();

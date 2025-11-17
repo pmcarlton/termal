@@ -37,7 +37,6 @@ use crate::alignment::Alignment;
 use crate::app::App;
 use crate::errors::TermalError;
 use crate::ui::{
-    color_map::colormap_gecos,
     key_handling::handle_key_press,
     render::render_ui,
     {ZoomLevel, UI},
@@ -225,10 +224,8 @@ fn main() -> Result<(), TermalError> {
         if cli.hide_bottom_pane {
             app_ui.set_bottom_pane_height(0);
         }
-
         if let Some(path) = cli.color_map {
-            let _cmap = colormap_gecos(path);
-            // TODO: add to colormaps (and remove the underscore)
+            app_ui.add_user_colormap(&path);
         }
 
         // main loop
