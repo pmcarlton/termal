@@ -10,7 +10,15 @@ mod vec_f64_aux;
 
 use log::{debug, info};
 
-use std::{fmt, io::stdout};
+use std::{
+    fmt,
+    fs::File,
+    io::{
+        BufRead,
+        BufReader,
+        stdout,
+    }
+};
 
 use clap::{arg, command, Parser, ValueEnum};
 
@@ -104,6 +112,11 @@ struct Cli {
     #[arg(short = 'D', long)]
     debug: bool,
 
+    /// User-supplied order (filename)
+    #[arg(short = 'o', long)]
+    user_order: Option<String>,
+
+    // TODO: superseded by BW colormap
     /// Disable color
     #[arg(short = 'C', long = "no-color")]
     no_color: bool,
@@ -120,13 +133,24 @@ struct Cli {
     #[clap(long = "panic")]
     panic: bool,
 
+    // TODO: the ZB can be disabled at runtime (or at least it should)
     /// Do not show zoom box (zooming itself is not disabled)
     #[arg(long = "no-zoom-box")]
     no_zoombox: bool,
 
+    // TODO: this is only ever used when the bottom pane is at the bottom of the terminal, which is
+    // practically never.
+    //
     /// Do not show zoom box guides (only useful if zoom box not shown)
     #[arg(long = "no-zb-guides")]
     no_zb_guides: bool,
+}
+
+// pub fn read_fasta_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, std::io::Error> {
+fn read_user_ordering(fname: &str) -> Result<Vec<String>, std::io::Error> {
+    let uord_file = File::open(fname)?;
+    let reader = BufReader::new(uord_file);
+    reader.lines().collect()
 }
 
 fn main() -> Result<(), TermalError> {
@@ -143,14 +167,21 @@ fn main() -> Result<(), TermalError> {
         return Ok(());
     }
 
-    // TODO: rename to seq_file, since we are no longer limited to FastA.
     if let Some(seq_filename) = &cli.aln_fname {
         let seq_file = match cli.format {
             SeqFileFormat::FastA => read_fasta_file(seq_filename)?,
             SeqFileFormat::Stockholm => read_stockholm_file(seq_filename)?,
         };
         let alignment = Alignment::new(seq_file);
-        let mut app = App::new(seq_filename, alignment);
+        let user_ordering = match cli.user_order {
+            Some(fname) => {
+                let ord_vec = read_user_ordering(&fname)?;
+                Some(ord_vec)
+            }
+            None => None,
+        };
+        let mut app = App::new(seq_filename, alignment,
+            user_ordering);
 
         if cli.info {
             info!("Running in debug mode.");
