@@ -117,9 +117,19 @@ impl App {
         self.recompute_ordering();
     }
 
-    pub fn cycle_metric(&mut self) {
+    pub fn next_metric(&mut self) {
         self.metric = match self.metric {
             PctIdWrtConsensus =>  SeqLen,
+            SeqLen => PctIdWrtConsensus,
+        };
+        self.recompute_ordering();
+    }
+
+    // NOTE: for now, there are only two metrics, so next and prev are the same. This might change,
+    // however.
+    pub fn prev_metric(&mut self) {
+        self.metric = match self.metric {
+            PctIdWrtConsensus => SeqLen,
             SeqLen => PctIdWrtConsensus,
         };
         self.recompute_ordering();

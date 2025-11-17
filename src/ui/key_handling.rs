@@ -191,9 +191,8 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
             KeyCode::Char('O') => ui.app.prev_ordering_criterion(),
 
             // Metric
-            // TODO: this directl< calls the method in App, while the above call a method in UI
-            // (which is just a wrapper around an App counterpart). Make up your mind, dude...
-            KeyCode::Char('t') => ui.app.cycle_metric(),
+            KeyCode::Char('t') => ui.app.next_metric(),
+            KeyCode::Char('T') => ui.app.prev_metric(),
 
             // ----  Exit ----
             KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
