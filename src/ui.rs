@@ -21,6 +21,10 @@ use crate::{
     App,
 };
 
+
+pub const INFO_MSG_BG: Color = Color::Black;
+pub const ERROR_MSG_BG: Color = Color::Red;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ZoomLevel {
     ZoomedIn,
@@ -90,6 +94,7 @@ pub struct UI<'a> {
     show_help: bool,
     full_screen: bool,
     message: String, // Simple, 1-line message (possibly just "", no need for Option IMHO)
+    message_bg: Color,
     video_mode: VideoMode,
 }
 
@@ -121,6 +126,7 @@ impl<'a> UI<'a> {
             show_help: false,
             full_screen: false,
             message: " Press '?' for help ".into(),
+            message_bg: INFO_MSG_BG,
             video_mode: VideoMode::Inverse,
         }
     }
@@ -471,8 +477,10 @@ impl<'a> UI<'a> {
                     let get_cmap = colormap_gecos(cmap_fname);
                     match get_cmap {
                         Ok(cmap) => cs.add_colormap(cmap),
-                        Err(_) => self.message = format!(
-                            "Error reading {}.", cmap_fname),
+                        Err(_) => {
+                            self.message = format!( "Error reading {}.", cmap_fname);
+                            self.message_bg = ERROR_MSG_BG;
+                        }
                     }
                 }
             }

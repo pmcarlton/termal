@@ -878,7 +878,7 @@ fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
     let btm_block = Block::default()
         .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM)
         .title_bottom(&*ui.message)
-        .title_style(Style::new().bold());
+        .title_style(Style::new().bold().bg(ui.message_bg));
 
     let mut colored_consensus: Vec<Span> = ui
         .app
