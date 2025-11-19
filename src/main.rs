@@ -172,10 +172,18 @@ fn main() -> Result<(), TermalError> {
             SeqFileFormat::Stockholm => read_stockholm_file(seq_filename)?,
         };
         let alignment = Alignment::new(seq_file);
+        let mut ordering_err_msg: Option<String> = None;
         let user_ordering = match cli.user_order {
             Some(fname) => {
-                let ord_vec = read_user_ordering(&fname)?;
-                Some(ord_vec)
+                let get_ord_vec = read_user_ordering(&fname);
+                match get_ord_vec {
+                    Ok(ord_vec) => Some(ord_vec),
+                    Err(_) => {
+                        ordering_err_msg = Some(format!("Could not read ordering file {}",
+                            fname));
+                        None
+                    }
+                }
             }
             None => None,
         };
