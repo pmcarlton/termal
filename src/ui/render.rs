@@ -990,7 +990,7 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
     if ui.show_help {
         render_help_dialog(f, layout_panes.dialog);
         // after the first display of the help dialog, remove the message
-        ui.message = "".into();
+        ui.clear_msg();
     }
 }
 

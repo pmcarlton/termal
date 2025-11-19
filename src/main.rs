@@ -175,11 +175,12 @@ fn main() -> Result<(), TermalError> {
         let mut ordering_err_msg: Option<String> = None;
         let user_ordering = match cli.user_order {
             Some(fname) => {
+                // TODO: should be called from_path()
                 let get_ord_vec = read_user_ordering(&fname);
                 match get_ord_vec {
                     Ok(ord_vec) => Some(ord_vec),
                     Err(_) => {
-                        ordering_err_msg = Some(format!("Could not read ordering file {}",
+                        ordering_err_msg = Some(format!("Error reading ordering file {}",
                             fname));
                         None
                     }
@@ -234,6 +235,9 @@ fn main() -> Result<(), TermalError> {
         }
         if let Some(path) = cli.color_map {
             app_ui.add_user_colormap(&path);
+        }
+        if let Some(msg) = ordering_err_msg {
+            app_ui.error_msg(msg);
         }
 
         // main loop

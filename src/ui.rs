@@ -469,21 +469,15 @@ impl<'a> UI<'a> {
     }
 
     pub fn add_user_colormap(&mut self, cmap_fname: &String) {
-        // Iterate over color schemes, add cmap unless monochrome
-        for cs in &mut self.color_schemes {
-            match cs.theme {
-                Theme::Monochrome => {}
-                _ => {
-                    let get_cmap = colormap_gecos(cmap_fname);
-                    match get_cmap {
-                        Ok(cmap) => cs.add_colormap(cmap),
-                        Err(_) => {
-                            self.message = format!( "Error reading {}.", cmap_fname);
-                            self.message_bg = ERROR_MSG_BG;
-                        }
-                    }
+        let get_cmap = colormap_gecos(cmap_fname);
+        match get_cmap {
+            Ok(cmap) => {
+                // Iterate over color schemes, add cmap unless monochrome
+                for cs in &mut self.color_schemes {
+                    cs.add_colormap(cmap.clone());
                 }
             }
+            Err(_) => self.error_msg(format!( "Error reading colormap {}.", cmap_fname)),
         }
     }
 
@@ -637,6 +631,20 @@ impl<'a> UI<'a> {
     pub fn jump_to_end(&mut self) {
         self.leftmost_col = self.max_leftmost_col()
     }
+
+    // Modeline & messaging
+    
+    pub fn error_msg(&mut self, msg: impl Into<String>) {
+        self.message = msg.into();
+        self.message_bg = ERROR_MSG_BG;
+    }
+
+    pub fn info_msg(&mut self, msg: impl Into<String>) {
+        self.message = msg.into();
+        self.message_bg = INFO_MSG_BG;
+    }
+
+    pub fn clear_msg(&mut self) { self.info_msg(""); }
 
     // Debugging
 
