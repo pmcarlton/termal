@@ -142,7 +142,7 @@ impl ColorScheme {
     pub fn prev_colormap(&mut self) {
         let size = self.residue_colormaps.len();
         // Add size -> no need to check for < 0
-        self.residue_colormap_index += size - 1; 
+        self.residue_colormap_index += size - 1;
         self.residue_colormap_index %= size;
     }
 }

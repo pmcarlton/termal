@@ -130,7 +130,6 @@ impl App {
                         if result.len() == self.alignment.headers.len() {
                             self.ordering = result;
                         } else {
-                            // TODO: warn user (see above)
                         }
                     }
                 }

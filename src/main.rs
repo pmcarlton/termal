@@ -152,6 +152,8 @@ fn read_user_ordering(fname: &str) -> Result<Vec<String>, std::io::Error> {
     reader.lines().collect()
 }
 
+
+
 fn main() -> Result<(), TermalError> {
     env_logger::init();
     info!("Starting log");
@@ -187,6 +189,16 @@ fn main() -> Result<(), TermalError> {
                 }
             }
             None => None,
+        };
+        if let Some(ref ord_vec) = user_ordering {
+            let mut uo_clone = ord_vec.clone();
+            let mut ah_clone = alignment.headers.clone();
+            uo_clone.sort();
+            ah_clone.sort();
+            if uo_clone != ah_clone {
+                ordering_err_msg = Some(
+                    String::from("Discrepancies in ordering vs alignment"));
+            }
         };
         let mut app = App::new(seq_filename, alignment,
             user_ordering);

@@ -58,6 +58,13 @@ Urgent
 Normal
 ------
 
+1. User should be warned if sequence labels in user-supplied orderings do not
+   match those in the alignment (up to order, of course). First, the check is
+   now made only once, in main() (l. ~195); second, the reorderings (in app.rs,
+   recompute_ordering() can now assume that the labels coincide).
+   Still something wrong <= tests with wrong ordering files are not caught (try
+   e.g. with a file that is not even an ordering, such as a treefile).
+
 1. [x] B0014 Out-of-bounds error when zoombox is 1-char. To reproduce: `make
    test`. Fixed in `a889c3229228`.
 

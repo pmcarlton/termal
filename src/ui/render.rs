@@ -841,11 +841,7 @@ fn render_corner_pane(f: &mut Frame, corner_chunk: Rect, ui: &UI) {
 
     let metric_text_style = ui.get_seq_metric_style().add_modifier(Modifier::BOLD);
     let metric_para = Paragraph::new(Text::styled(
-        format!(
-            "{} {}",
-            ui.app.get_metric(),
-            ui.app.get_seq_ordering()
-        ),
+        format!("{} {}", ui.app.get_metric(), ui.app.get_seq_ordering()),
         metric_text_style,
     ))
     .block(metric_block)
