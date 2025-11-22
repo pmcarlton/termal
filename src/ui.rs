@@ -49,7 +49,7 @@ enum InputMode {
     Help,
     PendingCount { count: usize },
     Search { pattern: String, direction: SearchDirection },
-    // ExCommand { buffer: String },
+    // ExCommand { buffer: String },
 }
 
 enum SearchDirection {
@@ -82,8 +82,6 @@ bitflags! {
     }
 }
 
-// TODO: make these fields private, e.g. I don't like render.rs to say ui.theme - I'd rather want
-// ui.get_theme().
 pub struct UI<'a> {
     app: &'a mut App,
     color_schemes: Vec<ColorScheme>,
@@ -106,11 +104,12 @@ pub struct UI<'a> {
     // layout is known.
     aln_pane_size: Option<Size>,
     frame_size: Option<Size>, // whole app
-    show_help: bool,
+    show_help: bool, // TODO: will be obsoleted by input modes
     full_screen: bool,
     message: String, // Simple, 1-line message (possibly just "", no need for Option IMHO)
     message_bg: Color,
     video_mode: VideoMode,
+    input_mode: InputMode,
 }
 
 impl<'a> UI<'a> {
@@ -143,6 +142,7 @@ impl<'a> UI<'a> {
             message: " Press '?' for help ".into(),
             message_bg: INFO_MSG_BG,
             video_mode: VideoMode::Inverse,
+            input_mode: InputMode::Normal,
         }
     }
 

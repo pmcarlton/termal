@@ -5,9 +5,22 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use log::debug;
 
 use crate::{ZoomLevel, UI};
+use crate::ui::{
+    InputMode,
+    InputMode::{Normal,Help,PendingCount,Search},
+};
 
 pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
-    dispatch_command(ui, key_event)
+    let mut done = false;
+    match &ui.input_mode {
+        Normal => {
+            done = dispatch_command(ui, key_event);
+        },
+        Help => todo!(),
+        PendingCount { count: usize } => todo!(),
+        Search { pattern: String, direction: SearchDirection } => todo!(),
+    };
+    done
 }
 
 fn dispatch_command(ui: &mut UI, key_event: KeyEvent) -> bool {
