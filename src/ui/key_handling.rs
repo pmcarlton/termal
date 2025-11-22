@@ -4,21 +4,22 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use log::debug;
 
-use crate::{ZoomLevel, UI};
 use crate::ui::{
     InputMode,
-    InputMode::{Normal,Help,PendingCount,Search},
+    InputMode::{Help, Normal, PendingCount, Search},
 };
+use crate::{ZoomLevel, UI};
 
 pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
     let mut done = false;
     match &ui.input_mode {
-        Normal => {
-            done = dispatch_command(ui, key_event);
-        },
-        Help => todo!(),
+        Normal => done = dispatch_command(ui, key_event),
+        Help => ui.input_mode = InputMode::Normal,
         PendingCount { count: usize } => todo!(),
-        Search { pattern: String, direction: SearchDirection } => todo!(),
+        Search {
+            pattern: String,
+            direction: SearchDirection,
+        } => todo!(),
     };
     done
 }
@@ -26,209 +27,201 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
 fn dispatch_command(ui: &mut UI, key_event: KeyEvent) -> bool {
     let mut done = false;
 
-    if ui.show_help {
-        ui.show_help = false;
-    } else {
-        // debug!("key event: {:#?}", key_event.code);
-        match key_event.code {
-            // Help
-            KeyCode::Char('?') => {
-                ui.show_help = true;
+    // debug!("key event: {:#?}", key_event.code);
+    match key_event.code {
+        // Help
+        KeyCode::Char('?') => ui.input_mode = InputMode::Help,
+
+        // ----- Hide/Show panes -----
+
+        // Left pane
+        KeyCode::Char('a') => {
+            if ui.label_pane_width == 0 {
+                ui.show_label_pane();
+            } else {
+                ui.hide_label_pane();
             }
+        }
 
-            // ----- Hide/Show panes -----
+        // Bottom pane
+        // Exception: Ctrl-C quits
+        KeyCode::Char('c') if !key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+            if key_event.modifiers == KeyModifiers::CONTROL {
+                done = true;
+            }
+            if ui.bottom_pane_height == 0 {
+                ui.show_bottom_pane();
+            } else {
+                ui.hide_bottom_pane();
+            }
+        }
 
-            // Left pane
-            KeyCode::Char('a') => {
-                if ui.label_pane_width == 0 {
-                    ui.show_label_pane();
-                } else {
-                    ui.hide_label_pane();
+        // Both panes
+        KeyCode::Char('f') => {
+            if ui.full_screen {
+                ui.show_label_pane();
+                ui.show_bottom_pane();
+                ui.full_screen = false;
+            } else {
+                ui.hide_label_pane();
+                ui.hide_bottom_pane();
+                ui.full_screen = true;
+            }
+        }
+
+        // ----- Motion -----
+
+        // Arrows - late introduction, but might be friendlier to new users.
+        KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
+            // Non-shifted arrow keys
+            if !key_event.modifiers.contains(KeyModifiers::SHIFT) {
+                match key_event.code {
+                    KeyCode::Down => match ui.zoom_level() {
+                        ZoomLevel::ZoomedIn => ui.scroll_one_line_down(),
+                        ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                            ui.scroll_zoombox_one_line_down()
+                        }
+                    },
+                    KeyCode::Up => match ui.zoom_level() {
+                        ZoomLevel::ZoomedIn => ui.scroll_one_line_up(),
+                        ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                            ui.scroll_zoombox_one_line_up()
+                        }
+                    },
+                    KeyCode::Right => match ui.zoom_level() {
+                        ZoomLevel::ZoomedIn => ui.scroll_one_col_right(),
+                        ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                            ui.scroll_zoombox_one_col_right()
+                        }
+                    },
+                    KeyCode::Left => match ui.zoom_level() {
+                        ZoomLevel::ZoomedIn => ui.scroll_one_col_left(),
+                        ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                            ui.scroll_zoombox_one_col_left()
+                        }
+                    },
+
+                    _ => panic!("Expected only arrow keycodes"),
+                }
+            } else {
+                // Shifted arrow keys
+                match key_event.code {
+                    KeyCode::Down => ui.scroll_one_screen_down(),
+                    KeyCode::Up => ui.scroll_one_screen_up(),
+                    KeyCode::Right => ui.scroll_one_screen_right(),
+                    KeyCode::Left => ui.scroll_one_screen_left(),
+
+                    _ => panic!("Expected only arrow keycodes"),
                 }
             }
+        }
 
-            // Bottom pane
-            // Exception: Ctrl-C quits
-            KeyCode::Char('c') if !key_event.modifiers.contains(KeyModifiers::CONTROL) => {
-                if key_event.modifiers == KeyModifiers::CONTROL {
-                    done = true;
-                }
-                if ui.bottom_pane_height == 0 {
-                    ui.show_bottom_pane();
-                } else {
-                    ui.hide_bottom_pane();
-                }
-            }
+        // Down
+        KeyCode::Char('j') => match ui.zoom_level() {
+            ZoomLevel::ZoomedIn => ui.scroll_one_line_down(),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_down(),
+        },
+        KeyCode::Char('J') | KeyCode::Char(' ') => ui.scroll_one_screen_down(),
+        KeyCode::Char('G') => ui.jump_to_bottom(),
 
-            // Both panes
-            KeyCode::Char('f') => {
-                if ui.full_screen {
-                    ui.show_label_pane();
-                    ui.show_bottom_pane();
-                    ui.full_screen = false;
-                } else {
-                    ui.hide_label_pane();
-                    ui.hide_bottom_pane();
-                    ui.full_screen = true;
-                }
-            }
+        // Up
+        KeyCode::Char('k') => match ui.zoom_level() {
+            ZoomLevel::ZoomedIn => ui.scroll_one_line_up(),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_up(),
+        },
+        KeyCode::Char('K') => ui.scroll_one_screen_up(),
+        KeyCode::Char('g') => ui.jump_to_top(),
 
-            // ----- Motion -----
+        // Right
+        KeyCode::Char('l') => match ui.zoom_level() {
+            ZoomLevel::ZoomedIn => ui.scroll_one_col_right(),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_col_right(),
+        },
+        KeyCode::Char('L') => ui.scroll_one_screen_right(),
+        KeyCode::Char('$') => ui.jump_to_end(),
 
-            // Arrows - late introduction, but might be friendlier to new users.
-            KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
-                // Non-shifted arrow keys
-                if !key_event.modifiers.contains(KeyModifiers::SHIFT) {
-                    match key_event.code {
-                        KeyCode::Down => match ui.zoom_level() {
-                            ZoomLevel::ZoomedIn => ui.scroll_one_line_down(),
-                            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
-                                ui.scroll_zoombox_one_line_down()
-                            }
-                        },
-                        KeyCode::Up => match ui.zoom_level() {
-                            ZoomLevel::ZoomedIn => ui.scroll_one_line_up(),
-                            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
-                                ui.scroll_zoombox_one_line_up()
-                            }
-                        },
-                        KeyCode::Right => match ui.zoom_level() {
-                            ZoomLevel::ZoomedIn => ui.scroll_one_col_right(),
-                            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
-                                ui.scroll_zoombox_one_col_right()
-                            }
-                        },
-                        KeyCode::Left => match ui.zoom_level() {
-                            ZoomLevel::ZoomedIn => ui.scroll_one_col_left(),
-                            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
-                                ui.scroll_zoombox_one_col_left()
-                            }
-                        },
+        // Left
+        KeyCode::Char('h') => match ui.zoom_level() {
+            ZoomLevel::ZoomedIn => ui.scroll_one_col_left(),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_col_left(),
+        },
+        KeyCode::Char('H') => ui.scroll_one_screen_left(),
+        KeyCode::Char('^') => ui.jump_to_begin(),
 
-                        _ => panic!("Expected only arrow keycodes"),
-                    }
-                } else {
-                    // Shifted arrow keys
-                    match key_event.code {
-                        KeyCode::Down => ui.scroll_one_screen_down(),
-                        KeyCode::Up => ui.scroll_one_screen_up(),
-                        KeyCode::Right => ui.scroll_one_screen_right(),
-                        KeyCode::Left => ui.scroll_one_screen_left(),
+        // Label Pane width
+        // NOTE: for these methods I'm using a more general approach than for
+        // motion: pass the argument instead of having separate functions for
+        // each increment.
+        KeyCode::Char('>') => ui.widen_label_pane(1),
+        KeyCode::Char('<') => ui.reduce_label_pane(1),
 
-                        _ => panic!("Expected only arrow keycodes"),
-                    }
-                }
-            }
+        // Zoom
+        KeyCode::Char('z') => ui.cycle_zoom(),
+        // Since there are 3 zoom levels, cycling twice amounts to cycling
+        // backwards.
+        KeyCode::Char('Z') => {
+            ui.cycle_zoom();
+            ui.cycle_zoom();
+        }
+        // Toggle zoom box guides
+        KeyCode::Char('v') => {
+            ui.set_zoombox_guides(!ui.show_zb_guides);
+        }
+        // Toggle zoom box visibility
+        KeyCode::Char('B') => {
+            ui.toggle_zoombox();
+        }
 
-            // Down
-            KeyCode::Char('j') => match ui.zoom_level() {
-                ZoomLevel::ZoomedIn => ui.scroll_one_line_down(),
-                ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_down(),
-            },
-            KeyCode::Char('J') | KeyCode::Char(' ') => ui.scroll_one_screen_down(),
-            KeyCode::Char('G') => ui.jump_to_bottom(),
+        // Bottom pane position (i.e., bottom of screen or stuck to the alignment - when both
+        // are possible).
+        KeyCode::Char('b') => {
+            ui.cycle_bottom_pane_position();
+            debug!(
+                "-- Toggling bottom pane position - now {:?}  --",
+                ui.bottom_pane_position
+            );
+        }
 
-            // Up
-            KeyCode::Char('k') => match ui.zoom_level() {
-                ZoomLevel::ZoomedIn => ui.scroll_one_line_up(),
-                ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_up(),
-            },
-            KeyCode::Char('K') => ui.scroll_one_screen_up(),
-            KeyCode::Char('g') => ui.jump_to_top(),
+        // ---- Visuals ----
 
-            // Right
-            KeyCode::Char('l') => match ui.zoom_level() {
-                ZoomLevel::ZoomedIn => ui.scroll_one_col_right(),
-                ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_col_right(),
-            },
-            KeyCode::Char('L') => ui.scroll_one_screen_right(),
-            KeyCode::Char('$') => ui.jump_to_end(),
+        // Mark consensus positions that are retained in the zoom box
+        KeyCode::Char('r') => ui.toggle_hl_retained_cols(),
 
-            // Left
-            KeyCode::Char('h') => match ui.zoom_level() {
-                ZoomLevel::ZoomedIn => ui.scroll_one_col_left(),
-                ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_col_left(),
-            },
-            KeyCode::Char('H') => ui.scroll_one_screen_left(),
-            KeyCode::Char('^') => ui.jump_to_begin(),
+        // Inverse video
+        KeyCode::Char('i') => {
+            ui.toggle_video_mode();
+        }
 
-            // Label Pane width
-            // NOTE: for these methods I'm using a more general approach than for
-            // motion: pass the argument instead of having separate functions for
-            // each increment.
-            KeyCode::Char('>') => ui.widen_label_pane(1),
-            KeyCode::Char('<') => ui.reduce_label_pane(1),
+        KeyCode::Char('s') => ui.next_color_scheme(),
+        KeyCode::Char('S') => ui.prev_color_scheme(),
 
-            // Zoom
-            KeyCode::Char('z') => ui.cycle_zoom(),
-            // Since there are 3 zoom levels, cycling twice amounts to cycling
-            // backwards.
-            KeyCode::Char('Z') => {
-                ui.cycle_zoom();
-                ui.cycle_zoom();
-            }
-            // Toggle zoom box guides
-            KeyCode::Char('v') => {
-                ui.set_zoombox_guides(!ui.show_zb_guides);
-            }
-            // Toggle zoom box visibility
-            KeyCode::Char('B') => {
-                ui.toggle_zoombox();
-            }
+        // Switch to next/previous colormap in the list
+        KeyCode::Char('m') => ui.next_colormap(),
+        KeyCode::Char('M') => ui.prev_colormap(),
 
-            // Bottom pane position (i.e., bottom of screen or stuck to the alignment - when both
-            // are possible).
-            KeyCode::Char('b') => {
-                ui.cycle_bottom_pane_position();
-                debug!(
-                    "-- Toggling bottom pane position - now {:?}  --",
-                    ui.bottom_pane_position
-                );
-            }
+        // Sequence Order
+        KeyCode::Char('o') => ui.app.next_ordering_criterion(),
+        KeyCode::Char('O') => ui.app.prev_ordering_criterion(),
 
-            // ---- Visuals ----
+        // Metric
+        KeyCode::Char('t') => ui.app.next_metric(),
+        KeyCode::Char('T') => ui.app.prev_metric(),
 
-            // Mark consensus positions that are retained in the zoom box
-            KeyCode::Char('r') => ui.toggle_hl_retained_cols(),
+        // ----  Exit ----
+        KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
+        KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => done = true,
 
-            // Inverse video
-            KeyCode::Char('i') => {
-                ui.toggle_video_mode();
-            }
-
-            KeyCode::Char('s') => ui.next_color_scheme(),
-            KeyCode::Char('S') => ui.prev_color_scheme(),
-
-            // Switch to next/previous colormap in the list
-            KeyCode::Char('m') => ui.next_colormap(),
-            KeyCode::Char('M') => ui.prev_colormap(),
-
-            // Sequence Order
-            KeyCode::Char('o') => ui.app.next_ordering_criterion(),
-            KeyCode::Char('O') => ui.app.prev_ordering_criterion(),
-
-            // Metric
-            KeyCode::Char('t') => ui.app.next_metric(),
-            KeyCode::Char('T') => ui.app.prev_metric(),
-
-            // ----  Exit ----
-            KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
-            KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
-                done = true
-            }
-
-            _ => {
-                // let the user know this key is not bound
-                //
-                // TODO: there are pros and cons about this - first, the user can probably guess
-                // that if nothing happens then the key isn't bound. Second, the message should be
-                // disabled after the user presses a bound key, which would force us to either add
-                // code to that effect for _every single_ key binding, or do a first match on every
-                // valid key (to disable the message) and then match on each individual key to
-                // launch the desired action. Not sure it's worth it, frankly.
-                //
-                // ui.message = format!("Key '{:#?}' is not bound.", key_event.code);
-            }
+        _ => {
+            // let the user know this key is not bound
+            //
+            // TODO: there are pros and cons about this - first, the user can probably guess
+            // that if nothing happens then the key isn't bound. Second, the message should be
+            // disabled after the user presses a bound key, which would force us to either add
+            // code to that effect for _every single_ key binding, or do a first match on every
+            // valid key (to disable the message) and then match on each individual key to
+            // launch the desired action. Not sure it's worth it, frankly.
+            //
+            // ui.message = format!("Key '{:#?}' is not bound.", key_event.code);
         }
     }
 

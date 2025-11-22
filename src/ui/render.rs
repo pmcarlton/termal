@@ -13,7 +13,7 @@ use crate::{
     ui::{
         barchart::{value_to_hbar, values_barchart},
         color_scheme::Theme,
-        AlnWRTSeqPane, BottomPanePosition, VideoMode,
+        AlnWRTSeqPane, BottomPanePosition, VideoMode, InputMode,
     },
     vec_f64_aux::{normalize, ones_complement, product},
     ZoomLevel, UI,
@@ -983,7 +983,7 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
     render_corner_pane(f, layout_panes.corner, ui);
     render_bottom_pane(f, layout_panes.bottom, ui);
 
-    if ui.show_help {
+    if ui.input_mode == InputMode::Help {
         render_help_dialog(f, layout_panes.dialog);
         // after the first display of the help dialog, remove the message
         ui.clear_msg();

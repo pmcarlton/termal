@@ -44,6 +44,7 @@ enum VideoMode {
     Inverse,
 }
 
+#[derive(PartialEq)]
 enum InputMode {
     Normal,
     Help,
@@ -52,6 +53,7 @@ enum InputMode {
     // ExCommand { buffer: String },
 }
 
+#[derive(PartialEq)]
 enum SearchDirection {
     Forward,
     Backward,
@@ -104,7 +106,6 @@ pub struct UI<'a> {
     // layout is known.
     aln_pane_size: Option<Size>,
     frame_size: Option<Size>, // whole app
-    show_help: bool, // TODO: will be obsoleted by input modes
     full_screen: bool,
     message: String, // Simple, 1-line message (possibly just "", no need for Option IMHO)
     message_bg: Color,
@@ -137,7 +138,6 @@ impl<'a> UI<'a> {
             bottom_pane_position: BottomPanePosition::Adjacent,
             aln_pane_size: None,
             frame_size: None,
-            show_help: false,
             full_screen: false,
             message: " Press '?' for help ".into(),
             message_bg: INFO_MSG_BG,
