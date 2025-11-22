@@ -7,6 +7,10 @@ use log::debug;
 use crate::{ZoomLevel, UI};
 
 pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
+    dispatch_command(ui, key_event)
+}
+
+fn dispatch_command(ui: &mut UI, key_event: KeyEvent) -> bool {
     let mut done = false;
 
     if ui.show_help {

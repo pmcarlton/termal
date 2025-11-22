@@ -44,6 +44,21 @@ enum VideoMode {
     Inverse,
 }
 
+enum InputMode {
+    Normal,
+    Help,
+    PendingCount { count: usize },
+    Search { pattern: String, direction: SearchDirection },
+    // ExCommand { buffer: String },
+}
+
+enum SearchDirection {
+    Forward,
+    Backward,
+    Up,
+    Down,
+}
+
 impl fmt::Display for VideoMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
