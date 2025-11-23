@@ -58,6 +58,9 @@ Urgent
 Normal
 ------
 
+1. [ ] After introducing input modes, check in particular the following:
+   quitting with Ctrl-C
+
 1. [x] B0018 User should be warned if sequence labels in user-supplied orderings do not
    match those in the alignment (up to order, of course). First, the check is
    now made only once, in main() (l. ~195); second, the reorderings (in app.rs,

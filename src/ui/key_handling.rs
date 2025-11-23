@@ -32,7 +32,9 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
             let d = (c as u8 - b'0') as usize;
             ui.input_mode = InputMode::PendingCount { count: d };
         }
-        KeyCode::Char('q') => done = true,
+        // Q, q, and Ctrl-C quit
+        KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
+        KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => done = true,
         // TODO: search
         KeyCode::Char('?') => ui.input_mode = InputMode::Help,
         // Anything else: dispatch corresponding command, without count
@@ -42,18 +44,23 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
 }
 
 fn handle_pending_count_key(ui: &mut UI, key_event: KeyEvent, count: usize) -> bool {
+    let mut done = false;
     match key_event.code {
         KeyCode::Char(c) if c.is_ascii_digit() => {
             let d = (c as u8 - b'0') as usize; 
             let updated_count = count.saturating_mul(10).saturating_add(d);
             ui.input_mode = InputMode::PendingCount { count: updated_count };
         }
+        // Q, q, and Ctrl-C quit
+        KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
+        KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => done = true,
         KeyCode::Esc => ui.input_mode = InputMode::Normal,
         _ => {
             ui.input_mode = InputMode::Normal;
             dispatch_command(ui, key_event, Some(count));
         }
     }
+    done
 }
 
 fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) {
@@ -73,11 +80,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         }
 
         // Bottom pane
-        // Exception: Ctrl-C quits
-        KeyCode::Char('c') if !key_event.modifiers.contains(KeyModifiers::CONTROL) => {
-            if key_event.modifiers == KeyModifiers::CONTROL {
-                done = true;
-            }
+        KeyCode::Char('c') => {
             if ui.bottom_pane_height == 0 {
                 ui.show_bottom_pane();
             } else {
@@ -235,10 +238,6 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Metric
         KeyCode::Char('t') => ui.app.next_metric(),
         KeyCode::Char('T') => ui.app.prev_metric(),
-
-        // ----  Exit ----
-        KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
-        KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => done = true,
 
         _ => {
             // let the user know this key is not bound
