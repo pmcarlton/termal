@@ -558,9 +558,9 @@ impl<'a> UI<'a> {
         }
     }
 
-    pub fn scroll_one_line_down(&mut self) {
-        if self.top_line < self.max_top_line() {
-            self.top_line += 1;
+    pub fn scroll_one_line_down(&mut self, count: u16) {
+        if self.top_line + count <= self.max_top_line() {
+            self.top_line += count;
         }
     }
 

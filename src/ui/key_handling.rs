@@ -109,7 +109,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
             if !key_event.modifiers.contains(KeyModifiers::SHIFT) {
                 match key_event.code {
                     KeyCode::Down => match ui.zoom_level() {
-                        ZoomLevel::ZoomedIn => ui.scroll_one_line_down(count),
+                        ZoomLevel::ZoomedIn => ui.scroll_one_line_down(count as u16),
                         ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
                             ui.scroll_zoombox_one_line_down()
                         }
@@ -150,7 +150,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
 
         // Down
         KeyCode::Char('j') => match ui.zoom_level() {
-            ZoomLevel::ZoomedIn => ui.scroll_one_line_down(),
+            ZoomLevel::ZoomedIn => ui.scroll_one_line_down(count as u16),
             ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_down(),
         },
         KeyCode::Char('J') | KeyCode::Char(' ') => ui.scroll_one_screen_down(),
