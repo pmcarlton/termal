@@ -52,6 +52,7 @@ fn handle_pending_count_key(ui: &mut UI, key_event: KeyEvent, count: usize) -> b
             let d = (c as u8 - b'0') as usize; 
             let updated_count = count.saturating_mul(10).saturating_add(d);
             ui.input_mode = InputMode::PendingCount { count: updated_count };
+            ui.add_count_digit(c);
         }
         // Q, q, and Ctrl-C quit
         KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
@@ -60,6 +61,7 @@ fn handle_pending_count_key(ui: &mut UI, key_event: KeyEvent, count: usize) -> b
         _ => {
             ui.input_mode = InputMode::Normal;
             dispatch_command(ui, key_event, Some(count));
+            ui.clear_msg();
         }
     }
     done
@@ -113,7 +115,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
                     KeyCode::Down => match ui.zoom_level() {
                         ZoomLevel::ZoomedIn => ui.scroll_one_line_down(count as u16),
                         ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
-                            ui.scroll_zoombox_one_line_down()
+                            ui.scroll_zoombox_one_line_down(count as u16)
                         }
                     },
                     KeyCode::Up => match ui.zoom_level() {
@@ -153,7 +155,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Down
         KeyCode::Char('j') => match ui.zoom_level() {
             ZoomLevel::ZoomedIn => ui.scroll_one_line_down(count as u16),
-            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_down(),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_down(count as u16),
         },
         KeyCode::Char('J') | KeyCode::Char(' ') => ui.scroll_one_screen_down(),
         KeyCode::Char('G') => ui.jump_to_bottom(),

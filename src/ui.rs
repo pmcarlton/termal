@@ -603,11 +603,9 @@ impl<'a> UI<'a> {
         }
     }
 
-    pub fn scroll_zoombox_one_line_down(&mut self) {
-        self.top_line += (1.0 / self.v_ratio()).round() as u16;
-        if self.top_line > self.max_top_line() {
-            self.top_line = self.max_top_line();
-        }
+    pub fn scroll_zoombox_one_line_down(&mut self, count: u16) {
+        self.top_line += (count as f64 / self.v_ratio()).round() as u16;
+        self.top_line = min(self.top_line, self.max_top_line());
     }
 
     pub fn scroll_zoombox_one_line_up(&mut self) {
