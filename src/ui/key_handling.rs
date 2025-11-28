@@ -7,6 +7,7 @@ use log::debug;
 use crate::ui::{
     InputMode,
     InputMode::{Help, Normal, PendingCount, Search},
+    SearchDirection,
 };
 use crate::{ZoomLevel, UI};
 
@@ -145,7 +146,6 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
                 }
             } else {
                 // Shifted arrow keys
-                ui.debug_msg("shift");
                 match key_event.code {
                     KeyCode::Up => ui.scroll_one_screen_up(count as u16),
                     KeyCode::Left => ui.scroll_one_screen_left(count as u16),
