@@ -558,6 +558,8 @@ impl<'a> UI<'a> {
         self.show_scrollbars = false;
     }
 
+    // By lines (zoomed in)
+
     pub fn scroll_one_line_up(&mut self, count: u16) {
         self.top_line = self.top_line.saturating_sub(count);
     }
@@ -575,6 +577,8 @@ impl<'a> UI<'a> {
         self.leftmost_col = min(self.leftmost_col.saturating_add(count),
             self.max_leftmost_col());
     }
+
+    // By screens
 
     pub fn scroll_one_screen_up(&mut self, count: u16) {
         self.top_line = self.top_line.saturating_sub(
@@ -602,6 +606,7 @@ impl<'a> UI<'a> {
         );
     }
 
+    // By lines, zoomed out
     pub fn scroll_zoombox_one_line_up(&mut self, count: u16) {
         self.top_line = self.top_line.saturating_sub( 
             (count as f64 / self.v_ratio()).round() as u16);
@@ -624,6 +629,9 @@ impl<'a> UI<'a> {
             self.max_leftmost_col());
     }
 
+    // ********************************************************
+    // Jumps
+
     pub fn jump_to_top(&mut self) {
         self.top_line = 0
     }
@@ -640,6 +648,7 @@ impl<'a> UI<'a> {
         self.leftmost_col = self.max_leftmost_col()
     }
 
+    // ********************************************************
     // Modeline & messaging
     
     pub fn clear_msg(&mut self) {
