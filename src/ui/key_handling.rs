@@ -189,10 +189,16 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('L') => ui.scroll_one_screen_right(count as u16),
         KeyCode::Char('$') => ui.jump_to_end(),
 
-        // Absolute lines
+        // Absolute Positions
 
         // Visible line
         KeyCode::Char('-') => ui.jump_to_line(count as u16),
+
+        // Column
+        KeyCode::Char('|') => ui.jump_to_col(count as u16),
+
+        // Relative positions
+        KeyCode::Char('%') => ui.jump_to_pct_line(count as u16),
 
         // Label Pane width
         // NOTE: for these methods I'm using a more general approach than for
@@ -253,7 +259,19 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('t') => ui.app.next_metric(),
         KeyCode::Char('T') => ui.app.prev_metric(),
 
-        _ => {
+        // ----- Search -----
+        KeyCode::Char('/') => ui.warning_msg("Search not implemented yet"),
+        KeyCode::Char('?') => ui.warning_msg("Search not implemented yet"),
+        KeyCode::Char(']') => ui.warning_msg("Search not implemented yet"),
+        KeyCode::Char('[') => ui.warning_msg("Search not implemented yet"),
+
+        // ----- Editing -----
+        // Filter alignment through external command (à la Vim's '!')
+        KeyCode::Char('!') => ui.warning_msg("Filtering not implemented yet"),
+        KeyCode::Char(':') => ui.warning_msg("Ex mode not implemented yet"),
+
+
+        KeyCode::Char(c) => {
             // let the user know this key is not bound
             //
             // TODO: there are pros and cons about this - first, the user can probably guess
@@ -262,8 +280,8 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
             // code to that effect for _every single_ key binding, or do a first match on every
             // valid key (to disable the message) and then match on each individual key to
             // launch the desired action. Not sure it's worth it, frankly.
-            //
-            // ui.message = format!("Key '{:#?}' is not bound.", key_event.code);
+            ui.warning_msg(format!("'{}' not bound", c));
         }
+        _ => todo!(),
     }
 }

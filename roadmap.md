@@ -58,6 +58,9 @@ Urgent
 Normal
 ------
 
+1. [ ] B0019 On single-sequence alignments, aspect-preserving zooming may crash. To
+   reproduce: `termal data/test3.pep` then `Z`.  
+
 1. [ ] On Debian/UTM, I do not seem to get the SHIFT modifer when pressing
    Shift-Up and Shift-Down (though it works for Shift-Left and Shift-Right). Use
    See src/ui/key_handling.rs:148.

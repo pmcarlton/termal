@@ -26,11 +26,13 @@ use crate::{
 
 
 pub const INFO_MSG_FG: Color = Color::White;
+pub const WARNING_MSG_FG: Color = Color::Black;
 pub const ERROR_MSG_FG: Color = Color::White;
 pub const COUNT_MSG_FG: Color = Color::White;
 pub const DEBUG_MSG_FG: Color = Color::Black;
 
 pub const INFO_MSG_BG: Color = Color::Black;
+pub const WARNING_MSG_BG: Color = Color::Yellow;
 pub const ERROR_MSG_BG: Color = Color::Red;
 pub const COUNT_MSG_BG: Color = Color::Blue;
 pub const DEBUG_MSG_BG: Color = Color::Cyan;
@@ -648,9 +650,27 @@ impl<'a> UI<'a> {
         self.leftmost_col = self.max_leftmost_col()
     }
     
+    // Jump to line `line` from the user's POV (i.e., 1-based) from the top (truncate if line >
+    // max_top_line). In zoomed-out mode, moves the top of the zoom box to the specified line. This
+    // means that e.g. 132- will move the top of the zoom box to line 132, or as close as possible,
+    // even if that line itself is not shown.
     pub fn jump_to_line(&mut self, line: u16) {
-        self.top_line = min(line, self.max_top_line());
+        // -1 <- 1-based
+        self.top_line = min(line-1, self.max_top_line());
     }
+    
+    pub fn jump_to_col(&mut self, col: u16) {
+        // -1 <- 1-based
+        self.leftmost_col = min(col-1, self.max_leftmost_col());
+    }
+
+    pub fn jump_to_pct_line(&mut self, mut pct: u16) {
+        pct = max(100, pct);
+        let frac = pct as f64 / 100.0;
+        self.top_line = (frac * self.max_top_line() as f64).floor() as u16;
+    }
+
+
 
     // ********************************************************
     // Modeline & messaging
@@ -662,28 +682,34 @@ impl<'a> UI<'a> {
         self.message_bg = INFO_MSG_BG;
     }
 
-    pub fn error_msg(&mut self, msg: impl Into<String>) {
-        self.message = msg.into();
-        self.message_fg = ERROR_MSG_FG;
-        self.message_bg = ERROR_MSG_BG;
-    }
-
     pub fn info_msg(&mut self, msg: impl Into<String>) {
         self.message = msg.into();
         self.message_fg = INFO_MSG_FG;
         self.message_bg = INFO_MSG_BG;
     }
 
-    pub fn add_count_digit(&mut self, digit: char) {
-        self.message.push(digit);
-        self.message_fg = COUNT_MSG_FG;
-        self.message_bg = COUNT_MSG_BG;
+    pub fn warning_msg(&mut self, msg: impl Into<String>) {
+        self.message = msg.into();
+        self.message_fg = WARNING_MSG_FG;
+        self.message_bg = WARNING_MSG_BG;
+    }
+
+    pub fn error_msg(&mut self, msg: impl Into<String>) {
+        self.message = msg.into();
+        self.message_fg = ERROR_MSG_FG;
+        self.message_bg = ERROR_MSG_BG;
     }
 
     pub fn debug_msg(&mut self, msg: impl Into<String>) {
         self.message = msg.into();
         self.message_fg = DEBUG_MSG_FG;
         self.message_bg = DEBUG_MSG_BG;
+    }
+
+    pub fn add_count_digit(&mut self, digit: char) {
+        self.message.push(digit);
+        self.message_fg = COUNT_MSG_FG;
+        self.message_bg = COUNT_MSG_BG;
     }
 
     // Debugging
