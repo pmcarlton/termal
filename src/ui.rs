@@ -665,9 +665,15 @@ impl<'a> UI<'a> {
     }
 
     pub fn jump_to_pct_line(&mut self, mut pct: u16) {
-        pct = max(100, pct);
-        let frac = pct as f64 / 100.0;
-        self.top_line = (frac * self.max_top_line() as f64).floor() as u16;
+        let clamped_pct = min(100, pct);
+        let tgt_line = (clamped_pct as f64 / 100.0 * self.app.num_seq() as f64).round() as u16;
+        self.top_line = tgt_line;
+    }
+
+    pub fn jump_to_pct_col(&mut self, mut pct: u16) {
+        let clamped_pct = min(100, pct);
+        let tgt_col = (clamped_pct as f64 / 100.0 * self.app.aln_len() as f64).round() as u16;
+        self.leftmost_col = tgt_col;
     }
 
 

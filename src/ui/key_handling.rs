@@ -65,8 +65,8 @@ fn handle_pending_count_key(ui: &mut UI, key_event: KeyEvent, count: usize) -> b
         }
         _ => {
             ui.input_mode = InputMode::Normal;
-            dispatch_command(ui, key_event, Some(count));
             ui.clear_msg();
+            dispatch_command(ui, key_event, Some(count));
         }
     }
     done
@@ -198,7 +198,12 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('|') => ui.jump_to_col(count as u16),
 
         // Relative positions
+
+        // Vertical
         KeyCode::Char('%') => ui.jump_to_pct_line(count as u16),
+
+        // Horizontal
+        KeyCode::Char('#') => ui.jump_to_pct_col(count as u16),
 
         // Label Pane width
         // NOTE: for these methods I'm using a more general approach than for
@@ -271,7 +276,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char(':') => ui.warning_msg("Ex mode not implemented yet"),
 
 
-        KeyCode::Char(c) => {
+        _ => {
             // let the user know this key is not bound
             //
             // TODO: there are pros and cons about this - first, the user can probably guess
@@ -280,8 +285,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
             // code to that effect for _every single_ key binding, or do a first match on every
             // valid key (to disable the message) and then match on each individual key to
             // launch the desired action. Not sure it's worth it, frankly.
-            ui.warning_msg(format!("'{}' not bound", c));
+            // ui.warning_msg(format!("'{}' not bound", c));
         }
-        _ => todo!(),
     }
 }
