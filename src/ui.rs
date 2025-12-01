@@ -7,7 +7,7 @@ pub mod key_handling;
 pub mod render;
 
 use std::{
-        cmp::{min, max},
+        cmp::{min},
         fmt,
 };
 
@@ -66,6 +66,7 @@ enum InputMode {
 }
 
 #[derive(PartialEq)]
+#[allow(dead_code)]
 enum SearchDirection {
     Forward,
     Backward,
@@ -664,13 +665,13 @@ impl<'a> UI<'a> {
         self.leftmost_col = min(col-1, self.max_leftmost_col());
     }
 
-    pub fn jump_to_pct_line(&mut self, mut pct: u16) {
+    pub fn jump_to_pct_line(&mut self, pct: u16) {
         let clamped_pct = min(100, pct);
         let tgt_line = (clamped_pct as f64 / 100.0 * self.app.num_seq() as f64).round() as u16;
         self.top_line = tgt_line;
     }
 
-    pub fn jump_to_pct_col(&mut self, mut pct: u16) {
+    pub fn jump_to_pct_col(&mut self, pct: u16) {
         let clamped_pct = min(100, pct);
         let tgt_col = (clamped_pct as f64 / 100.0 * self.app.aln_len() as f64).round() as u16;
         self.leftmost_col = tgt_col;
@@ -688,6 +689,7 @@ impl<'a> UI<'a> {
         self.message_bg = INFO_MSG_BG;
     }
 
+    #[allow(dead_code)]
     pub fn info_msg(&mut self, msg: impl Into<String>) {
         self.message = msg.into();
         self.message_fg = INFO_MSG_FG;
@@ -706,6 +708,7 @@ impl<'a> UI<'a> {
         self.message_bg = ERROR_MSG_BG;
     }
 
+    #[allow(dead_code)]
     pub fn debug_msg(&mut self, msg: impl Into<String>) {
         self.message = msg.into();
         self.message_fg = DEBUG_MSG_FG;

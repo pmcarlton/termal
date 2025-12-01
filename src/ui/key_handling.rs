@@ -17,10 +17,7 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         Normal => done = handle_normal_key(ui, key_event),
         Help => ui.input_mode = InputMode::Normal,
         PendingCount { count } => done = handle_pending_count_key(ui, key_event, *count),
-        Search {
-            pattern: String,
-            direction: SearchDirection,
-        } => todo!(),
+        Search { pattern, direction } => todo!(),
     };
     done
 }
