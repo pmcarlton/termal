@@ -236,6 +236,8 @@ impl App {
         }
     }
 
+    // Label search
+
     pub fn regex_search_labels(&mut self, pattern: &str) {
         self.debug_msg("Regex search");
         let try_re = Regex::new(pattern);
@@ -261,6 +263,29 @@ impl App {
             }
         }
     }
+
+    pub fn current_label_match_linenum(&self) -> Option<usize> {
+        if let Some(state) = &self.search_state {
+            Some(state.match_linenums[state.current])
+        } else {
+            None
+        }
+    }
+
+    pub fn increment_current_lbl_match(&mut self, count: usize) {
+        match &self.search_state {
+            Some(state) => {
+                let nb_matches = state.match_linenums.len();
+                let new = (state.current + count) % nb_matches;
+                self.search_state.as_mut().unwrap().current = new;
+            }
+            None => {
+                self.warning_msg("No current search.");
+            }
+        }
+    }
+
+    // Messages
 
     pub fn clear_msg(&mut self) {
         self.current_msg = CurrentMessage {

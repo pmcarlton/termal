@@ -643,13 +643,9 @@ impl<'a> UI<'a> {
         self.leftmost_col = self.max_leftmost_col()
     }
     
-    // Jump to line `line` from the user's POV (i.e., 1-based) from the top (truncate if line >
-    // max_top_line). In zoomed-out mode, moves the top of the zoom box to the specified line. This
-    // means that e.g. 132- will move the top of the zoom box to line 132, or as close as possible,
-    // even if that line itself is not shown.
+    // Jump to (0-based) line.
     pub fn jump_to_line(&mut self, line: u16) {
-        // -1 <- 1-based
-        self.top_line = min(line-1, self.max_top_line());
+        self.top_line = min(line, self.max_top_line());
     }
     
     pub fn jump_to_col(&mut self, col: u16) {
@@ -667,6 +663,19 @@ impl<'a> UI<'a> {
         let clamped_pct = min(100, pct);
         let tgt_col = (clamped_pct as f64 / 100.0 * self.app.aln_len() as f64).round() as u16;
         self.leftmost_col = tgt_col;
+    }
+
+    pub fn jump_to_next_lbl_match(&mut self, count: u16) {
+        if let Some(state) = &self.app.search_state  {
+            // We know there is a state, so from now on we can unwrap.
+            self.app.increment_current_lbl_match(count as usize);
+            self.app.info_msg(format!("match #{}",
+                    self.app.search_state.as_ref().unwrap().current));
+            let next_match_line = self.app.current_label_match_linenum();
+            self.jump_to_line(next_match_line.unwrap() as u16);
+        } else {
+            // Warning message is set in App - nothing to do here.
+        }
     }
 
     // Debugging

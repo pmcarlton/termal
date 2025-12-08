@@ -98,7 +98,7 @@ fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str, directio
             }
         }
         KeyCode::Delete => {
-            let mut updated_pattern = pattern.to_string()
+            let mut updated_pattern = pattern.to_string();
             updated_pattern.pop();
             ui.input_mode = InputMode::LabelSearch { 
                 pattern: updated_pattern,
@@ -109,8 +109,7 @@ fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str, directio
             ui.app.regex_search_labels(pattern);
             ui.input_mode = InputMode::Normal;
             if let Some(srch_st) = &ui.app.search_state {
-                let first_match_linenum = srch_st.match_linenums[0];
-                ui.jump_to_line(first_match_linenum.saturating_add(1) as u16); // +1 -> user is 1-based
+                ui.jump_to_next_lbl_match(0);
             }
         }
         _ => {}
@@ -237,7 +236,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Absolute Positions
 
         // Visible line
-        KeyCode::Char('-') => ui.jump_to_line(count as u16),
+        KeyCode::Char('-') => ui.jump_to_line((count as u16) - 1), // -1: user is 1-based
 
         // Column
         KeyCode::Char('|') => ui.jump_to_col(count as u16),
