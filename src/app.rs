@@ -278,19 +278,24 @@ impl App {
         }
     }
 
-    pub fn increment_current_lbl_match(&mut self, count: usize) {
+    pub fn increment_current_lbl_match(&mut self, count: isize) {
         match &self.search_state {
             Some(state) => {
                 let nb_matches = state.match_linenums.len();
                 if nb_matches > 0 {
-                    let new = (state.current + count) % nb_matches;
+                    // (i+n).rem(l)
+                    let new = (state.current as isize + count).rem_euclid(nb_matches as isize) as usize;
+                    //let new = (state.current + count) % nb_matches.;
                     self.search_state.as_mut().unwrap().current = new;
+                    self.info_msg(format!("match #{}/{}",
+                            self.search_state.as_ref().unwrap().current + 1, // +1 <- user is 1-based
+                            self.search_state.as_ref().unwrap().match_linenums.len()));
                 } else {
-                    self.warning_msg("No match.");
+                    self.info_msg("No match.");
                 }
             }
             None => {
-                self.warning_msg("No current search.");
+                self.info_msg("No current search.");
             }
         }
     }
