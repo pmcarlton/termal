@@ -110,8 +110,8 @@ pub struct UI<'a> {
     highlight_retained_cols: bool,
     top_line: u16,
     leftmost_col: u16,
-    label_pane_width: u16,
-    previous_label_pane_width: u16, // To restore width after hiding pane
+    left_pane_width: u16,
+    previous_left_pane_width: u16, // To restore width after hiding pane
     bottom_pane_height: u16,
     previous_bottom_pane_height: u16,
     bottom_pane_position: BottomPanePosition,
@@ -144,8 +144,8 @@ impl<'a> UI<'a> {
             highlight_retained_cols: false,
             top_line: 0,
             leftmost_col: 0,
-            label_pane_width: 18, // Reasonable default, I'd say...
-            previous_label_pane_width: 0,
+            left_pane_width: 18, // Reasonable default, I'd say...
+            previous_left_pane_width: 0,
             bottom_pane_height: 5,
             previous_bottom_pane_height: 0,
             bottom_pane_position: BottomPanePosition::Adjacent,
@@ -224,18 +224,18 @@ impl<'a> UI<'a> {
 
     // Side panel dimensions
  
-    pub fn set_label_pane_width(&mut self, width: u16) {
-        self.label_pane_width = width;
+    pub fn set_left_pane_width(&mut self, width: u16) {
+        self.left_pane_width = width;
     }
 
     // Also stores previous width
     pub fn hide_label_pane(&mut self) {
-        self.previous_label_pane_width = self.label_pane_width;
-        self.label_pane_width = 0;
+        self.previous_left_pane_width = self.left_pane_width;
+        self.left_pane_width = 0;
     }
 
     pub fn show_label_pane(&mut self) {
-        self.label_pane_width = self.previous_label_pane_width;
+        self.left_pane_width = self.previous_left_pane_width;
     }
 
     // Number of columns needed to write the highest sequence number, e.g. 4 for 1000. This does
@@ -251,8 +251,8 @@ impl<'a> UI<'a> {
     }
 
     pub fn widen_label_pane(&mut self, amount: u16) {
-        self.label_pane_width = min(
-            self.label_pane_width + amount,
+        self.left_pane_width = min(
+            self.left_pane_width + amount,
             self.frame_size.unwrap().width -
             (V_SCROLLBAR_WIDTH + MIN_COLS_SHOWN + BORDER_WIDTH + 
              self.seq_num_pane_width() + self.metric_pane_width())
@@ -260,11 +260,11 @@ impl<'a> UI<'a> {
         self.app.debug_msg(format!("Fw: {}; NPw: {}, LPw: {}",
                 self.frame_size.unwrap().width,
                 self.seq_num_pane_width(),
-                self.label_pane_width,
+                self.left_pane_width,
                 ));
         /*
-        self.label_pane_width = if self.label_pane_width + amount < self.frame_size.unwrap().width {
-            self.label_pane_width + amount
+        self.left_pane_width = if self.left_pane_width + amount < self.frame_size.unwrap().width {
+            self.left_pane_width + amount
         } else {
             self.frame_size.unwrap().width
         }
@@ -272,9 +272,9 @@ impl<'a> UI<'a> {
     }
 
     pub fn reduce_label_pane(&mut self, amount: u16) {
-        self.label_pane_width = max(
+        self.left_pane_width = max(
             self.seq_num_pane_width() + self.metric_pane_width(),
-            self.label_pane_width.saturating_sub(amount)
+            self.left_pane_width.saturating_sub(amount)
         );
     }
 

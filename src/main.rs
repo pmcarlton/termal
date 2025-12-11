@@ -247,7 +247,7 @@ fn main() -> Result<(), TermalError> {
             app_ui.set_zoombox_guides(false);
         }
         if cli.hide_labels_pane {
-            app_ui.set_label_pane_width(0);
+            app_ui.set_left_pane_width(0);
         }
         if cli.hide_bottom_pane {
             app_ui.set_bottom_pane_height(0);

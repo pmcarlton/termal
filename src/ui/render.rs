@@ -510,7 +510,7 @@ fn max_num_seq(f: &Frame, ui: &UI) -> u16 {
 
             let aln_pane = Layout::new(
                 Direction::Horizontal,
-                vec![Constraint::Max(ui.label_pane_width), Constraint::Fill(1)],
+                vec![Constraint::Max(ui.left_pane_width), Constraint::Fill(1)],
             )
             .split(top_chunk)[1];
 
@@ -578,12 +578,9 @@ fn make_layout(f: &Frame, ui: &UI) -> Panes {
         MIN_COLS_SHOWN + BORDER_WIDTH;
     let upper_panes = Layout::new(
         Direction::Horizontal,
-        vec![Constraint::Max(ui.label_pane_width), Constraint::Min(min_seq_pane_width)],
+        vec![Constraint::Max(ui.left_pane_width), Constraint::Min(min_seq_pane_width)],
     )
     .split(v_panes[0]);
-    // number of columns for the label number pane :-)
-    // which is 1 + the log_10 of the number of sequences (rounded down), plus room for the left
-    // border.
     let lbl_num_pane_num_cols = ui.seq_num_pane_width();
     let lbl_pane = Layout::new(
         Direction::Horizontal,
@@ -596,7 +593,7 @@ fn make_layout(f: &Frame, ui: &UI) -> Panes {
     .split(upper_panes[0]);
     let lower_panes = Layout::new(
         Direction::Horizontal,
-        vec![Constraint::Max(ui.label_pane_width), Constraint::Fill(min_seq_pane_width)],
+        vec![Constraint::Max(ui.left_pane_width), Constraint::Fill(min_seq_pane_width)],
     )
     .split(v_panes[1]);
 

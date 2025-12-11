@@ -14,9 +14,9 @@ z,Z: next/previous zoom mode
 
 ## Adjusting the Panes
 
-<,>: widen/narrow label pane     
-a  : hide/show label pane        
-c  : hide/show consensus pane    
+<,>: widen/narrow left pane     
+a  : hide/show left pane        
+c  : hide/show bottom pane    
 f  : toggle fullscreen alignment pane 
 
 ## Video

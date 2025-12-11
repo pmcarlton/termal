@@ -126,7 +126,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
 
         // Left pane
         KeyCode::Char('a') => {
-            if ui.label_pane_width == 0 {
+            if ui.left_pane_width == 0 {
                 ui.show_label_pane();
             } else {
                 ui.hide_label_pane();
@@ -254,10 +254,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('n') => ui.jump_to_next_lbl_match(count as i16),
         KeyCode::Char('p') => ui.jump_to_next_lbl_match(-1 * count as i16),
 
-        // Label Pane width
-        // NOTE: for these methods I'm using a more general approach than for
-        // motion: pass the argument instead of having separate functions for
-        // each increment.
+        // Left Pane width
         KeyCode::Char('>') => ui.widen_label_pane(count as u16),
         KeyCode::Char('<') => ui.reduce_label_pane(count as u16),
 
