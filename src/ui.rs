@@ -8,7 +8,7 @@ pub mod render;
 mod msg_theme;
 
 use std::{
-        cmp::{min},
+        cmp::{max, min},
         fmt,
 };
 
@@ -219,7 +219,7 @@ impl<'a> UI<'a> {
     }
 
     // Side panel dimensions
-
+ 
     pub fn set_label_pane_width(&mut self, width: u16) {
         self.label_pane_width = width;
     }
@@ -232,6 +232,18 @@ impl<'a> UI<'a> {
 
     pub fn show_label_pane(&mut self) {
         self.label_pane_width = self.previous_label_pane_width;
+    }
+
+    // Number of columns needed to write the highest sequence number, e.g. 4 for 1000. This does
+    // NOT take into account any borders.
+    pub fn seq_num_max_len(&self) -> u16 {
+        self.app.num_seq().ilog10() as u16 + 1
+    }
+
+    // Width of seq num pane, which is the length of the longest seq num + border width (1).
+    // TODO: Express border width as a constant
+    pub fn seq_num_pane_width(&self) -> u16 {
+        self.seq_num_max_len() + 1
     }
 
     pub fn widen_label_pane(&mut self, amount: u16) {
@@ -250,9 +262,17 @@ impl<'a> UI<'a> {
     }
 
     pub fn reduce_label_pane(&mut self, amount: u16) {
-        // TODO: heed the border width (not sure if we'll keep them)
-        self.label_pane_width = self.label_pane_width.saturating_sub(amount);
+        self.label_pane_width = max(
+            self.seq_num_pane_width() + self.metric_pane_width(),
+            self.label_pane_width.saturating_sub(amount)
+        );
     }
+
+    pub fn metric_pane_width(&self) -> u16 {
+        // Two chars for the histogram, and one for the border
+        3
+    }
+
 
     // Bottom pane dimensions
 

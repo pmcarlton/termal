@@ -69,7 +69,7 @@ fn retained_seq_ndx(ui: &UI) -> Vec<usize> {
 }
 
 fn compute_label_numbers<'a>(ui: &UI) -> Vec<Line<'a>> {
-    let num_cols = ui.app.num_seq().ilog10() as usize + 1;
+    let num_cols = ui.seq_num_max_len() as usize;
     let numbers = ui
         .app
         .ordering
@@ -581,7 +581,7 @@ fn make_layout(f: &Frame, ui: &UI) -> Panes {
     // number of columns for the label number pane :-)
     // which is 1 + the log_10 of the number of sequences (rounded down), plus room for the left
     // border.
-    let lbl_num_pane_num_cols = ui.app.num_seq().ilog10() + 2;
+    let lbl_num_pane_num_cols = ui.seq_num_pane_width();
     let lbl_pane = Layout::new(
         Direction::Horizontal,
         vec![
