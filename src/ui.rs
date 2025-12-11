@@ -185,7 +185,7 @@ impl<'a> UI<'a> {
 
     fn max_nb_col_shown(&self) -> u16 {
         let width = self.aln_pane_size.unwrap().width;
-        width.saturating_sub(2)
+        width.saturating_sub(2) // Borders - TODO: use constants!
     }
 
     // Resizing (as when the user resizes the terminal window where Termal runs) affects
@@ -257,11 +257,6 @@ impl<'a> UI<'a> {
             (V_SCROLLBAR_WIDTH + MIN_COLS_SHOWN + BORDER_WIDTH + 
              self.seq_num_pane_width() + self.metric_pane_width())
         );
-        self.app.debug_msg(format!("Fw: {}; NPw: {}, LPw: {}",
-                self.frame_size.unwrap().width,
-                self.seq_num_pane_width(),
-                self.left_pane_width,
-                ));
         /*
         self.left_pane_width = if self.left_pane_width + amount < self.frame_size.unwrap().width {
             self.left_pane_width + amount
@@ -729,5 +724,14 @@ impl<'a> UI<'a> {
             self.leftmost_col,
             self.max_leftmost_col()
         )
+    }
+
+    pub fn width_debug_msg(&mut self) {
+        self.app.debug_msg(format!("Fw: {}; LPw: {}, SPw: {} (S={})",
+                self.frame_size.unwrap().width,
+                self.left_pane_width,
+                self.aln_pane_size.unwrap().width,
+                self.left_pane_width + self.aln_pane_size.unwrap().width,
+                ));
     }
 }

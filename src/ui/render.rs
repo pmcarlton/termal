@@ -873,11 +873,7 @@ fn mark_consensus_zb_pos(consensus: &mut [Span], ui: &UI) {
 fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
     let colormap = ui.color_scheme().current_residue_colormap();
     let btm_block = Block::default()
-        .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM)
-        .title_bottom(format!("{}{}",
-                &*ui.app.current_msg.prefix,
-                &*ui.app.current_msg.message))
-        .title_style(style_for(&ui.app.current_msg.kind));
+        .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM);
 
     let mut colored_consensus: Vec<Span> = ui
         .app
@@ -930,6 +926,16 @@ fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
     f.render_widget(btm_para, bottom_chunk);
 }
 
+fn render_modeline(f: &mut Frame, ui: &mut UI) {
+    let modeline_block = Block::default()
+        .borders(Borders::NONE)
+        .title_bottom(format!("{}{}",
+                &*ui.app.current_msg.prefix,
+                &*ui.app.current_msg.message))
+        .title_style(style_for(&ui.app.current_msg.kind));
+    f.render_widget(modeline_block, f.size());
+}
+
 fn render_help_dialog(f: &mut Frame, dialog_chunk: Rect) {
     let dialog_block = Block::default().borders(Borders::ALL);
     let bindings = include_str!("bindings.md");
@@ -977,6 +983,7 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
     ui.frame_size = Some(f.area().as_size());
 
     ui.assert_invariants();
+    ui.width_debug_msg();
 
     /* Render panes */
     render_label_nums_pane(f, layout_panes.lbl_num, ui);
@@ -985,6 +992,7 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
     render_alignment_pane(f, layout_panes.sequence, ui);
     render_corner_pane(f, layout_panes.corner, ui);
     render_bottom_pane(f, layout_panes.bottom, ui);
+    render_modeline(f, ui);
 
     if ui.input_mode == InputMode::Help {
         render_help_dialog(f, layout_panes.dialog);
