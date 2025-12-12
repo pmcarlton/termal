@@ -86,7 +86,7 @@ pub struct App {
     pub ordering: Vec<usize>,
     user_ordering: Option<Vec<String>>,
     pub search_state: Option<SearchState>,
-    pub current_msg: CurrentMessage,
+    current_msg: CurrentMessage,
 }
 
 impl App {
@@ -301,6 +301,10 @@ impl App {
     }
 
     // Messages
+
+    pub fn current_message(&self) -> &CurrentMessage {
+        &self.current_msg
+    }
 
     pub fn clear_msg(&mut self) {
         self.current_msg = CurrentMessage {

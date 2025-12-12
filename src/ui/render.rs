@@ -927,14 +927,18 @@ fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
 }
 
 fn render_modeline(f: &mut Frame, ui: &mut UI) {
-    if ui.app.current_msg.message.is_empty() { return; }
+    // Do not write anything if BOTH prefix and msg are ""
+    if ui.app.current_message().prefix.is_empty() &&
+       ui.app.current_message().message.is_empty() {
+           return;
+    }
 
     // without '└ ', the modeline would start in the very bottom left.
     let corner_span = Span::raw("└ ");
     let message_span = Span::styled(format!("{}{}",
-                &*ui.app.current_msg.prefix,
-                &*ui.app.current_msg.message),
-            style_for(&ui.app.current_msg.kind)
+                &*ui.app.current_message().prefix,
+                &*ui.app.current_message().message),
+            style_for(&ui.app.current_message().kind)
         );
     let spacer_span = Span::raw(" ");
     let modeline = Line::from(vec![corner_span,
