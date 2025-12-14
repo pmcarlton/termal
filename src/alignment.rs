@@ -54,8 +54,8 @@ struct BestResidue {
 }
 
 impl Alignment {
-    // Makes an Alignment from a FastaFile, which is consumed.
-    pub fn new(fasta: SeqFile) -> Alignment {
+    // Makes an Alignment from a SeqFile, which is consumed.
+    pub fn from_file(fasta: SeqFile) -> Alignment {
         let mut headers: Vec<String> = Vec::new();
         let mut sequences: Vec<String> = Vec::new();
         let mut max_len: usize = 0;
@@ -73,6 +73,35 @@ impl Alignment {
             .iter_mut()
             .for_each(|s| *s = format!("{:<width$}", s, width = max_len));
         // NOTE: the 's' can also be written '&*s', which makes the automatic re-borrow explicit.
+        let consensus = consensus(&sequences);
+        let entropies = entropies(&sequences);
+        let densities = densities(&sequences);
+        let id_wrt_consensus = sequences
+            .iter()
+            .map(|seq| percent_identity(seq, &consensus))
+            .collect();
+        let relative_seq_len = sequences.iter().map(|seq| seq_len_nogaps(seq)).collect();
+        let first_seq = sequences.first();
+        let macromolecule_type = seq_type(first_seq.expect("No sequence found."));
+
+        Alignment {
+            headers,
+            sequences,
+            consensus,
+            entropies,
+            densities,
+            id_wrt_consensus,
+            relative_seq_len,
+            macromolecule_type,
+        }
+    }
+
+    // Makes an Alignment from a Vec of headers and a Vec of Strings, which are consumed. Mostly
+    // used for testing.
+    pub fn from_vecs(hdrs: Vec<String>, seqs: Vec<String>) -> Alignment {
+        assert_eq!(hdrs.len(), seqs.len());
+        let headers = hdrs;
+        let sequences = seqs;
         let consensus = consensus(&sequences);
         let entropies = entropies(&sequences);
         let densities = densities(&sequences);
@@ -256,7 +285,7 @@ mod tests {
         best_residue, consensus, densities, entropies, entropy, percent_identity, res_count,
         seq_len_nogaps, seq_type, to_freq_distrib, Alignment, BestResidue, ResidueCounts,
         ResidueDistribution,
-        SeqType::{Nucleic, Protein},
+        SeqType, SeqType::{Nucleic, Protein},
     };
     use crate::seq::fasta::read_fasta_file;
     use approx::assert_relative_eq;
@@ -265,7 +294,7 @@ mod tests {
     #[test]
     fn test_read_aln() {
         let fasta1 = read_fasta_file("./data/test2.fas").unwrap();
-        let aln1 = Alignment::new(fasta1);
+        let aln1 = Alignment::from_file(fasta1);
         assert_eq!("seq1", aln1.headers[0]);
         assert_eq!("seq2", aln1.headers[1]);
         assert_eq!("seq3", aln1.headers[2]);
@@ -277,14 +306,14 @@ mod tests {
     #[test]
     fn test_consensus() {
         let fasta2 = read_fasta_file("data/test-cons.fas").unwrap();
-        let aln2 = Alignment::new(fasta2);
+        let aln2 = Alignment::from_file(fasta2);
         assert_eq!("AQw-n", consensus(&aln2.sequences));
     }
 
     #[test]
     fn test_res_count() {
         let fasta2 = read_fasta_file("data/test-cons.fas").unwrap();
-        let aln2 = Alignment::new(fasta2);
+        let aln2 = Alignment::from_file(fasta2);
         let mut d0: ResidueCounts = HashMap::new();
         d0.insert('A', 6);
         assert_eq!(d0, res_count(&aln2.sequences, 0));
@@ -381,7 +410,7 @@ mod tests {
     #[test]
     fn test_entropies() {
         let fasta2 = read_fasta_file("data/test-cons.fas").unwrap();
-        let aln2 = Alignment::new(fasta2);
+        let aln2 = Alignment::from_file(fasta2);
         let entrs = entropies(&aln2.sequences);
         let eps = 0.001;
         assert_relative_eq!(0.0, entrs[0], epsilon = eps);
@@ -393,7 +422,7 @@ mod tests {
     #[test]
     fn test_density() {
         let fasta = read_fasta_file("data/test-density.msa").unwrap();
-        let aln = Alignment::new(fasta);
+        let aln = Alignment::from_file(fasta);
         let dens = densities(&aln.sequences);
         assert_eq!(1.0, dens[0]);
         assert_eq!(0.8, dens[1]);
@@ -406,7 +435,7 @@ mod tests {
     #[test]
     fn test_order_aln() {
         let fasta = read_fasta_file("./data/test4.aln").unwrap();
-        let aln1 = Alignment::new(fasta);
+        let aln1 = Alignment::from_file(fasta);
         // Check original order
         assert_eq!("Zea_001", aln1.headers[0]);
         assert_eq!("Rana_002", aln1.headers[1]);
@@ -475,6 +504,29 @@ mod tests {
     #[test]
     fn test_unequal_seq_len() {
         let fasta = read_fasta_file("./data/test5.aln").unwrap();
-        let _ = Alignment::new(fasta);
+        let _ = Alignment::from_file(fasta);
+    }
+
+    // Test the Vec constructor 
+    #[test]
+    fn test_vec_ctor_00() {
+        let hdrs = vec![
+            String::from("Leo"),
+            String::from("Tigris"),
+            String::from("Pardus"),
+            String::from("Onca")
+        ];
+        let seqs = vec![
+            String::from("catgcatatg"),
+            String::from("aatgcatatg"),
+            String::from("tatgcatatg"),
+            String::from("gatgcatatg")
+        ];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        assert_eq!(4, aln.num_seq());
+        assert_eq!(10, aln.aln_len());
+        assert_eq!(SeqType::Nucleic, aln.macromolecule_type());
+        assert_eq!("Onca", aln.headers[3]);
+        assert_eq!("gatgcatatg", aln.sequences[3]);
     }
 }
