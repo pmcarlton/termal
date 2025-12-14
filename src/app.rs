@@ -91,7 +91,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn from_file(path: &str, alignment: Alignment, usr_ord: Option<Vec<String>>) -> Self {
+    pub fn new(path: &str, alignment: Alignment, usr_ord: Option<Vec<String>>) -> Self {
         let len = alignment.num_seq();
         let cur_msg = CurrentMessage {
             prefix: String::from(""),
@@ -198,6 +198,13 @@ impl App {
             },
         };
         self.recompute_ordering();
+    }
+
+    // Maps a rank (= index in the original alignment) to the corresponding line on the screen
+    // (which may or may not be visible). This is affected by the ordering. This is NOT
+    // user-facing, hence 0-based.
+    pub fn rank_to_screenline(&self, rank: usize) -> usize {
+        self.reverse_ordering[rank]
     }
 
     pub fn next_metric(&mut self) {
@@ -386,7 +393,11 @@ fn order<T: PartialOrd>(elems: &[T]) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
 
-    use crate::app::order;
+    use crate::{
+        Alignment,
+        App,
+        app::order,
+    };
 
     #[test]
     fn test_order_00() {
@@ -412,8 +423,93 @@ mod tests {
     }
 
     #[test]
-    fn test_rank2screenline_00() {
-        todo!();
+    fn test_ordering_00() {
+        let hdrs = vec![
+            String::from("R1"),
+            String::from("R2"),
+            String::from("R3"),
+            String::from("R4")
+        ];
+        let seqs = vec![
+            String::from("catgcatatg"), // 0 diffs WRT consensus
+            String::from("cCtgcatatg"), // 1 diffs WRT consensus
+            String::from("catAcTtatg"), // 2 diffs WRT consensus
+            String::from("caGgAataAg"), // 3 diffs WRT consensus
+        ];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        assert_eq!(app.ordering, vec![0, 1, 2, 3]);
+        app.next_ordering_criterion();
+        // Ordering is now by increasing metric, which is (by default) %id WRT consensus. Given the above
+        // sequences, this effectively reverses the order.
+        assert_eq!(app.ordering, vec![3, 2, 1, 0]);
+        app.next_ordering_criterion();
+        // Now by decreasing metric, which in this case is (by construction) the same as the
+        // original.
+        assert_eq!(app.ordering, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_ordering_05() {
+        let hdrs = vec![
+            String::from("R1"),
+            String::from("R2"),
+            String::from("R3"),
+            String::from("R4"),
+            String::from("R5"),
+        ];
+        let seqs = vec![
+            String::from("catgcatatg"), // 0 diffs WRT consensus
+            String::from("caGgAaCaAg"), // 4 diffs WRT consensus
+            String::from("catAcTtatg"), // 2 diffs WRT consensus
+            String::from("cCtgcatatg"), // 1 diffs WRT consensus
+            String::from("caGgAataAg"), // 3 diffs WRT consensus
+        ];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        assert_eq!(app.ordering, vec![0, 1, 2, 3, 4]);
+        app.next_ordering_criterion();
+        assert_eq!(app.ordering, vec![1, 4, 2, 3, 0]);
+        assert_eq!(app.reverse_ordering, vec![4, 0, 2, 3, 1]);
+        app.next_ordering_criterion();
+        assert_eq!(app.ordering, vec![0, 3, 2, 4, 1]);
+        assert_eq!(app.reverse_ordering, vec![0, 4, 2, 1, 3]);
+    }
+
+    #[test]
+    fn test_rank_to_screenline_00() {
+        let hdrs = vec![
+            String::from("R1"),
+            String::from("R2"),
+            String::from("R3"),
+            String::from("R4"),
+            String::from("R5"),
+        ];
+        let seqs = vec![
+            String::from("catgcatatg"), // 0 diffs WRT consensus
+            String::from("caGgAaCaAg"), // 4 diffs WRT consensus
+            String::from("catAcTtatg"), // 2 diffs WRT consensus
+            String::from("cCtgcatatg"), // 1 diffs WRT consensus
+            String::from("caGgAataAg"), // 3 diffs WRT consensus
+        ];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        assert_eq!(app.ordering, vec![0, 1, 2, 3, 4]);
+        // Until ordering changes, rank == screenline
+        assert_eq!(0, app.rank_to_screenline(0));
+        assert_eq!(1, app.rank_to_screenline(1));
+        assert_eq!(2, app.rank_to_screenline(2));
+        assert_eq!(3, app.rank_to_screenline(3));
+        assert_eq!(4, app.rank_to_screenline(4));
+        app.next_ordering_criterion();
+        assert_eq!(app.ordering, vec![1, 4, 2, 3, 0]);
+        assert_eq!(app.reverse_ordering, vec![4, 0, 2, 3, 1]);
+        // Now the ordering is by metric, so rank != screenline
+        assert_eq!(app.rank_to_screenline(0), 4);
+        assert_eq!(app.rank_to_screenline(1), 0);
+        assert_eq!(app.rank_to_screenline(2), 2);
+        assert_eq!(app.rank_to_screenline(3), 3);
+        assert_eq!(app.rank_to_screenline(4), 1);
     }
 
 

@@ -19,3 +19,4 @@ termal-v1.1.0-macos-x86_64
 termal*.zip
 *windows*
 *.zip
+*.jl

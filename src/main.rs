@@ -204,8 +204,7 @@ fn main() -> Result<(), TermalError> {
                 user_ordering = None;
             }
         };
-        let mut app = App::from_file(seq_filename, alignment,
-            user_ordering);
+        let mut app = App::new(seq_filename, alignment, user_ordering);
         if let Some(msg) = ordering_err_msg {
             app.error_msg(msg);
         }
