@@ -697,11 +697,10 @@ impl<'a> UI<'a> {
 
     pub fn jump_to_next_lbl_match(&mut self, count: i16) {
         self.app.increment_current_lbl_match(count as isize);
-        // Line in original file (= rank)
         let next_match_orig_line = self.app.current_label_match_screenlinenum();
         if let Some(line) = next_match_orig_line {
             self.jump_to_line(line as u16);
-            self.app.debug_msg(format!("Rk: {} Sc: {}", line, line));
+            self.app.debug_msg(format!("Sc: {}", line));
         }
     }
 

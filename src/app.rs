@@ -279,7 +279,7 @@ impl App {
     pub fn current_label_match_screenlinenum(&self) -> Option<usize> {
         if let Some(state) = &self.search_state {
             if state.match_linenums.len() > 0 {
-                Some(self.reverse_ordering[state.match_linenums[state.current]])
+                Some(self.rank_to_screenline(state.match_linenums[state.current]))
             } else {
                 None
             }
