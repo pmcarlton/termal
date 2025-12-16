@@ -936,15 +936,18 @@ fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
     f.render_widget(btm_para, bottom_chunk);
 }
 
-fn render_modeline(f: &mut Frame, ui: &mut UI) {
+fn render_modeline(f: &mut Frame, last_content_line: u16, ui: &mut UI) {
     // Do not write anything if BOTH prefix and msg are ""
     if ui.app.current_message().prefix.is_empty() &&
        ui.app.current_message().message.is_empty() {
            return;
     }
 
+    let modeline_rect = Rect {x: 1, y: last_content_line,
+        width: f.area().width - (2 * BORDER_WIDTH),
+        height: 1};
     // without '└ ', the modeline would start in the very bottom left.
-    let corner_span = Span::raw("└ ");
+    let corner_span = Span::raw(" ");
     let message_span = Span::styled(format!("{}{}",
                 &*ui.app.current_message().prefix,
                 &*ui.app.current_message().message),
@@ -953,10 +956,7 @@ fn render_modeline(f: &mut Frame, ui: &mut UI) {
     let spacer_span = Span::raw(" ");
     let modeline = Line::from(vec![corner_span,
         message_span, spacer_span]);
-    let modeline_block = Block::default()
-        .borders(Borders::NONE)
-        .title_bottom(modeline);
-    f.render_widget(modeline_block, f.area());
+    f.render_widget(modeline, modeline_rect);
 }
 
 fn render_help_dialog(f: &mut Frame, dialog_chunk: Rect) {
@@ -1015,7 +1015,9 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
     render_alignment_pane(f, layout_panes.sequence, ui);
     render_corner_pane(f, layout_panes.corner, ui);
     render_bottom_pane(f, layout_panes.bottom, ui);
-    render_modeline(f, ui);
+    render_modeline(f,
+        layout_panes.lbl_num.height+layout_panes.corner.height - 1,
+        ui);
 
     if ui.input_mode == InputMode::Help {
         render_help_dialog(f, layout_panes.dialog);
