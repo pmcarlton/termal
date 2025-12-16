@@ -38,7 +38,10 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
             ui.app.clear_msg();
             ui.app.add_argument_char(c);
         }
-        KeyCode::Esc => ui.app.clear_msg(),
+        KeyCode::Esc => {
+            ui.app.reset_lbl_search();
+            ui.app.clear_msg();
+        }
         // Q, q, and Ctrl-C quit
         KeyCode::Char('q') | KeyCode::Char('Q') => done = true,
         KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => done = true,

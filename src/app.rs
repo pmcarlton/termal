@@ -330,6 +330,10 @@ impl App {
         }
     }
 
+    pub fn reset_lbl_search(&mut self) {
+        self.search_state = None;
+    }
+
     // Messages
 
     pub fn current_message(&self) -> &CurrentMessage {
