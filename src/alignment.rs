@@ -98,6 +98,7 @@ impl Alignment {
 
     // Makes an Alignment from a Vec of headers and a Vec of Strings, which are consumed. Mostly
     // used for testing.
+    #[allow(dead_code)]
     pub fn from_vecs(hdrs: Vec<String>, seqs: Vec<String>) -> Alignment {
         assert_eq!(hdrs.len(), seqs.len());
         let headers = hdrs;

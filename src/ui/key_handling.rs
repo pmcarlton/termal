@@ -8,9 +8,7 @@ use log::debug;
 use crate::ui::{
     InputMode,
     InputMode::{Help, Normal, PendingCount, LabelSearch, Search},
-    LabelSearchDirection,
-    LabelSearchDirection::{Up, Down},
-    SearchDirection,
+    //SearchDirection,
 };
 
 use crate::{ZoomLevel, UI};
@@ -22,8 +20,8 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         Normal => done = handle_normal_key(ui, key_event),
         Help => ui.input_mode = InputMode::Normal,
         PendingCount { count } => done = handle_pending_count_key(ui, key_event, count),
-        LabelSearch { pattern, direction } => handle_label_search(ui, key_event, &pattern, direction),
-        Search { pattern, direction } => todo!(),
+        LabelSearch { pattern } => handle_label_search(ui, key_event, &pattern),
+        Search { pattern: _, direction: _ } => todo!(),
     };
     done
 }
@@ -50,7 +48,6 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
         KeyCode::Char('"') => {
             ui.input_mode = InputMode::LabelSearch{
                 pattern: String::from(""),
-                direction: LabelSearchDirection::Down,
             };
             ui.app.argument_msg(String::from("Label search: "), String::from(""));
         },
@@ -85,7 +82,7 @@ fn handle_pending_count_key(ui: &mut UI, key_event: KeyEvent, count: usize) -> b
     done
 }
 
-fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str, direction: LabelSearchDirection) {
+fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str) {
     match key_event.code {
         KeyCode::Esc => {
             ui.input_mode = InputMode::Normal;
@@ -95,26 +92,20 @@ fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str, directio
             ui.app.add_argument_char(c);
             let mut updated_pattern = pattern.to_string();
             updated_pattern.push(c);
-            ui.input_mode = InputMode::LabelSearch { 
-                pattern: updated_pattern,
-                direction: direction,
-            }
+            ui.input_mode = InputMode::LabelSearch { pattern: updated_pattern }
         }
         KeyCode::Delete | KeyCode::Backspace  => {
             ui.app.pop_argument_char();
             let mut updated_pattern = pattern.to_string();
             updated_pattern.pop();
-            ui.input_mode = InputMode::LabelSearch { 
-                pattern: updated_pattern,
-                direction: direction,
-            };
+            ui.input_mode = InputMode::LabelSearch { pattern: updated_pattern };
         }
         KeyCode::Enter => {
             ui.app.regex_search_labels(pattern);
             ui.input_mode = InputMode::Normal;
-            if let Some(srch_st) = &ui.app.search_state {
+            //if let Some(_) = &ui.app.search_state {
                 ui.jump_to_next_lbl_match(0);
-            }
+            //}
         }
         _ => {}
     }

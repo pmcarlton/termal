@@ -51,7 +51,11 @@ impl fmt::Display for Metric {
 }
 
 pub struct SearchState {
+    // These will eventually be used, when we highlight the actual matching parts of the label, and
+    // to allow more informative messages like "pattern 'xyz' has no match".
+    #[allow(dead_code)]
     pub pattern: String,
+    #[allow(dead_code)]
     regex: Regex,
     // Only the matching linenums; used for jumping to next match on screen. As many elements as
     // there are _matches_.

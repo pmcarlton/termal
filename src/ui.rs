@@ -54,8 +54,10 @@ enum InputMode {
     Normal,
     Help,
     PendingCount { count: usize },
-    LabelSearch { pattern: String, direction: LabelSearchDirection },
-    Search { pattern: String, direction: SearchDirection },
+    LabelSearch { pattern: String },
+    #[allow(dead_code)]
+    Search { pattern: String, direction: SearchDirection
+    },
     // ExCommand { buffer: String },
 }
 
@@ -723,15 +725,5 @@ impl<'a> UI<'a> {
             self.leftmost_col,
             self.max_leftmost_col()
         )
-    }
-
-    pub fn width_debug_msg(&mut self) {
-        self.app.debug_msg(format!("Fw: {}; LPw: {} ({}+), SPw: {} (S={})",
-                self.frame_size.unwrap().width,
-                self.left_pane_width,
-                self.seq_num_pane_width(),
-                self.aln_pane_size.unwrap().width,
-                self.left_pane_width + self.aln_pane_size.unwrap().width,
-                ));
     }
 }
