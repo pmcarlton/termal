@@ -728,9 +728,3 @@ impl<'a> UI<'a> {
         )
     }
 }
-
-// TODO: reorganize into own module
-
-pub fn get_residue_style() -> Style {
-    Style::new()
-}

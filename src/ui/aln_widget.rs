@@ -7,61 +7,67 @@ use ratatui::{
     widgets::Widget
 };
 
-use crate::ui::get_residue_style;
+use crate::ui::{
+    color_map::ColorMap,
+    render::get_residue_style,
+    Theme,
+    VideoMode,
+};
 
-pub struct AlnWidget<'a> {
+pub struct SeqPane<'a> {
     pub sequences: &'a [String],
     pub ordering: &'a [usize],
-
     pub top_i: usize,
     pub left_j: usize,
-
-    // pub video_mode: VideoMode, // whatever your type is
-    // pub theme: Theme,          // whatever your type is
-    // pub colormap: &'a ColorMap, // your mapping residue -> something
+    pub video_mode: VideoMode,
+    pub theme: &'a Theme,
+    pub colormap: &'a ColorMap,
+    pub base_style: Style, // optional, for clearing/background
 }
 
-impl<'a> AlnWidget<'a> {
-    fn cell_style(&self, ch: u8) -> Style {
-        let cur_char = ch as char;
-        // get_residue_style(self.video_mode, &self.theme, self.colormap.get(cur_char))
-        get_residue_style()
+impl<'a> SeqPane<'a> {
+    #[inline]
+    fn style_for_byte(&self, b: u8) -> Style {
+        // assuming ASCII residues
+        let ch = b as char;
+        get_residue_style(self.video_mode, *self.theme, self.colormap.get(ch))
     }
 }
 
-impl<'a> Widget for AlnWidget<'a> {
+impl<'a> Widget for SeqPane<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // Clear the aln pane - especially needed after zoom-outs.
-        for y in area.y..area.y.saturating_add(area.height) {
-            for x in area.x..area.x.saturating_add(area.width) {
-                buf.get_mut(x, y).reset();
-            }
-        }
-
-        // visible dimensions
         let rows = area.height as usize;
         let cols = area.width as usize;
 
+        // Clear the pane so “extra space” doesn’t show stale cells.
+        for y in 0..rows {
+            for x in 0..cols {
+                buf.get_mut(area.x + x as u16, area.y + y as u16)
+                    .set_char(' ')
+                    .set_style(self.base_style);
+            }
+        }
+
         for r in 0..rows {
             let i = self.top_i + r;
-            if i >= self.ordering.len() { break; }
-
+            if i >= self.ordering.len() {
+                break;
+            }
             let seq = self.sequences[self.ordering[i]].as_bytes();
 
             for c in 0..cols {
                 let j = self.left_j + c;
-                if j >= seq.len() { break; }
+                if j >= seq.len() {
+                    break;
+                }
+                let b = seq[j];
+                let style = self.style_for_byte(b);
 
-                let ch = seq[j];
-                let style = self.cell_style(ch);
-
-                let x = area.x + c as u16;
-                let y = area.y + r as u16;
-
-                buf.get_mut(x, y)
-                    .set_char(ch as char)
+                buf.get_mut(area.x + c as u16, area.y + r as u16)
+                    .set_char(b as char)
                     .set_style(style);
             }
         }
     }
 }
+

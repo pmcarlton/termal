@@ -11,7 +11,7 @@ use log::debug;
 
 use crate::{
     ui::{
-        aln_widget::AlnWidget,
+        aln_widget::SeqPane,
         barchart::{value_to_hbar, values_barchart},
         color_scheme::Theme,
         msg_theme::style_for,
@@ -164,9 +164,9 @@ fn get_label_num_style(theme: Theme, color: Color) -> Style {
     style
 }
 
-// FIXME Shouldn't this be a part of UI rather than Render (like get_seq_metric_style()? We could dispense with passing theme
-// and mode
-fn get_residue_style(video_mode: VideoMode, theme: Theme, color: Color) -> Style {
+// FIXME Shouldn't this be a part of UI rather than Render (like get_seq_metric_style()? We could
+// dispense with passing theme and mode
+pub fn get_residue_style(video_mode: VideoMode, theme: Theme, color: Color) -> Style {
     let mut style = Style::default();
 
     match theme {
@@ -784,8 +784,22 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
         }
     }
 
-    let seq_para = Paragraph::new(seq).block(aln_block);
-    f.render_widget(seq_para, aln_chunk);
+    // EXPERIMENTAL SeqPane
+
+    let pane = SeqPane {
+        sequences: &ui.app.alignment.sequences,
+        ordering: &ui.app.ordering,
+        top_i: ui.top_line as usize,
+        left_j: ui.leftmost_col as usize,
+        video_mode: ui.video_mode,
+        theme: &ui.theme(),
+        colormap: ui.color_scheme().current_residue_colormap(),
+        base_style: Style::default()
+    };
+
+    // let seq_para = Paragraph::new(seq).block(aln_block);
+    // f.render_widget(seq_para, aln_chunk);
+    f.render_widget(pane, aln_chunk);
 
     if ui.zoom_level == ZoomLevel::ZoomedIn && ui.show_scrollbars {
         let zoombox_color = ui.get_zoombox_color();
