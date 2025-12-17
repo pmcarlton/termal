@@ -259,24 +259,10 @@ fn main() -> Result<(), TermalError> {
         terminal.draw(|f| render_ui(f, &mut app_ui))?;
         // main loop
         loop {
-            //debug!("\n**** Draw Iteration ****");
-            //debug!("terminal size: {:?}", terminal.size().unwrap());
-            /*
-            terminal.draw(|f| render_ui(f, &mut app_ui))?;
-            // handle events
-            if event::poll(std::time::Duration::from_millis(cli.poll_wait_time))? {
-                if let event::Event::Key(key) = event::read()? {
-                    if key.kind == KeyEventKind::Press {
-                        // handle_key_press() returns true IFF user quits
-                        let done = handle_key_press(&mut app_ui, key);
-                        if done {
-                            break;
-                        }
-                    }
-                }
-            }
-            */
             // Wait for an event (or timeout)
+            // TODO: redraw only if 'dirty', i.e. visuals have changes (most keys, but not e.g.
+            // when scrolling past a boundary (=> no change). Have handle_key_press() return (done,
+            // dirty) (i.e. a tuple of booleans).
             //let mut dirty = true;
             if event::poll(std::time::Duration::from_millis(cli.poll_wait_time))? {
                 match event::read()? {

@@ -352,28 +352,6 @@ impl<'a> UI<'a> {
         let max_r_cols = (self.app.aln_len() as f64 * max_ratio).floor() as u16;
         let max_r_seqs = (self.app.num_seq() as f64 * max_ratio).floor() as u16;
 
-        debug!("  ***");
-        debug!(
-            "  max shown cols: {}, max shown seqs: {}",
-            self.max_nb_col_shown(),
-            self.max_nb_seq_shown()
-        );
-        debug!(
-            "  h_r: {:.2}, v_r: {:.2}, min_r: {:.2}, max_r: {:.2}",
-            self.h_ratio(),
-            self.v_ratio(),
-            min_ratio,
-            max_ratio,
-        );
-        debug!(
-            "  min ratio ({:.2}): {} seqs x {} cols",
-            min_ratio, min_r_seqs, min_r_cols
-        );
-        debug!(
-            "  max ratio ({:.2}): {} seqs x {} cols",
-            max_ratio, max_r_seqs, max_r_cols
-        );
-
         if max_r_cols == self.max_nb_col_shown() && max_r_seqs == self.max_nb_seq_shown() {
             max_ratio
         } else {

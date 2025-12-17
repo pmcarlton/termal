@@ -51,20 +51,8 @@ fn retained_seq_ndx(ui: &UI) -> Vec<usize> {
         ZoomLevel::ZoomedOut => every_nth(ui.app.num_seq() as usize, ui.max_nb_seq_shown().into()),
         ZoomLevel::ZoomedOutAR => {
             let ratio = ui.common_ratio();
-            debug!(
-                "h-ratio: {}, v-ratio: {} -> Ratio: {ratio}",
-                ui.h_ratio(),
-                ui.v_ratio()
-            );
             // This call to round() is ok as it is not an indx into an array.
             let num_retained_seqs: usize = (ui.app.num_seq() as f64 * ratio).round() as usize;
-            debug!(
-                "Num retained seqs: {} * {} = {} (total: {})",
-                ui.app.num_seq(),
-                ratio,
-                num_retained_seqs,
-                ui.app.num_seq()
-            );
             every_nth(ui.app.num_seq() as usize, num_retained_seqs)
         }
     }
@@ -523,18 +511,10 @@ fn max_num_seq(f: &Frame, ui: &UI) -> u16 {
             )
             .split(top_chunk)[1];
 
-            //debug!("1st-pass seq area: {:?}", aln_pane);
             let v_ratio = (aln_pane.height - 2) as f64 / ui.app.num_seq() as f64;
-            //debug!("1st-pass v-ratio: {}", v_ratio);
             // This is WRONG - need to discount left panes' width
             let h_ratio = (aln_pane.width - 2) as f64 / ui.app.aln_len() as f64;
-            //debug!("1st-pass h-ratio: {}", h_ratio);
             let ratio = h_ratio.min(v_ratio);
-            //debug!("1st-pass ratio: {}", ratio);
-            debug!(
-                "max #seq: {}",
-                (ui.app.num_seq() as f64 * ratio).round() as u16
-            );
 
             (ui.app.num_seq() as f64 * ratio).round() as u16
         }
@@ -570,7 +550,7 @@ fn delineate_help_pane(frame_area: Rect) -> Rect {
 fn make_layout(f: &Frame, ui: &UI) -> Panes {
     // TODO: refactor into several fns; perhaps in a separate module
     let mns = max_num_seq(f, ui);
-    debug!("max num seq: {}", mns);
+
     let constraints: Vec<Constraint> = match ui.bottom_pane_position {
         BottomPanePosition::Adjacent => vec![
             Constraint::Max(mns + 2), // + 2 <- borders
@@ -702,11 +682,6 @@ fn compute_aln_pane_text<'a>(ui: &'a UI<'a>) -> Vec<Line<'a>> {
         }
     }
 
-    debug!(
-        "compute_aln_pane_text(): {}s x {}c",
-        sequences.len(),
-        sequences[0].spans.len()
-    );
     sequences
 }
 
@@ -764,12 +739,7 @@ fn render_seq_metrics_pane(f: &mut Frame, num_chunk: Rect, ui: &UI) {
 }
 
 fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
-    debug!(
-        "render_alignment_pane(): max_nb_seq_shown = {}",
-        ui.max_nb_seq_shown()
-    );
     let mut seq = compute_aln_pane_text(ui);
-    debug!("render_alignment_pane(): aln width={}", seq[0].spans.len());
     let title = compute_title(ui, &seq);
     let aln_block = Block::default().title(title).borders(Borders::ALL);
     let inner_aln_block = aln_block.inner(aln_chunk);
@@ -1002,12 +972,9 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
      * alignment fits in it, the horizontal and vertical ratios when zooming, the top line and
      * leftmost column, etc.
      */
-    debug!(
-        "render_ui(): aln_pane_size = {:?}",
-        layout_panes.sequence.as_size()
-    );
+
     ui.aln_pane_size = Some(layout_panes.sequence.as_size());
-    debug!("render_ui(): max_nb_seq_shown = {}", ui.max_nb_seq_shown());
+
     // Handle resizing
     ui.adjust_seq_pane_position();
     /* NOTE: the docs (https://docs.rs/ratatui/latest/ratatui/struct.Frame.html#method.area) say
@@ -1054,7 +1021,6 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
  * the first (0) and last (l-1) indexes. If n >= l, then return 0 .. l. */
 
 pub fn every_nth(l: usize, n: usize) -> Vec<usize> {
-    //debug!("Computing {} indexes out of {}.", n, l);
     if n >= l {
         (0..l).collect()
     } else {
