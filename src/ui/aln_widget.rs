@@ -1,18 +1,10 @@
 use ratatui::{
-    prelude::{
-        Buffer,
-        Rect,
-    },
+    prelude::{Buffer, Rect},
     style::Style,
-    widgets::Widget
+    widgets::Widget,
 };
 
-use crate::ui::{
-    color_map::ColorMap,
-    render::get_residue_style,
-    Theme,
-    VideoMode,
-};
+use crate::ui::{color_map::ColorMap, render::get_residue_style, Theme, VideoMode};
 
 pub struct SeqPane<'a> {
     pub sequences: &'a [String],
@@ -70,4 +62,3 @@ impl<'a> Widget for SeqPane<'a> {
         }
     }
 }
-

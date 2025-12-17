@@ -15,8 +15,8 @@ use crate::{
         barchart::{value_to_hbar, values_barchart},
         color_scheme::Theme,
         msg_theme::style_for,
-        AlnWRTSeqPane, BottomPanePosition, VideoMode, InputMode,
-        V_SCROLLBAR_WIDTH, MIN_COLS_SHOWN, BORDER_WIDTH,
+        AlnWRTSeqPane, BottomPanePosition, InputMode, VideoMode, BORDER_WIDTH, MIN_COLS_SHOWN,
+        V_SCROLLBAR_WIDTH,
     },
     vec_f64_aux::{normalize, ones_complement, product},
     ZoomLevel, UI,
@@ -120,10 +120,7 @@ fn zoom_in_lbl_text<'a>(ui: &UI) -> Vec<Line<'a>> {
             } else {
                 Style::default()
             };
-            let span = Span::styled(
-                ui.app.alignment.headers[*i].clone(),
-                hl_style
-            );
+            let span = Span::styled(ui.app.alignment.headers[*i].clone(), hl_style);
             Line::from(span)
         })
         .collect()
@@ -140,8 +137,8 @@ fn zoom_out_lbl_text<'a>(ui: &UI) -> Vec<Line<'a>> {
         };
         ztext.push(Line::from(Span::styled(
             ui.app.alignment.headers[ui.app.ordering[i]].clone(),
-            hl_style)
-        ));
+            hl_style,
+        )));
     }
 
     ztext
@@ -586,11 +583,13 @@ fn make_layout(f: &Frame, ui: &UI) -> Panes {
     };
     let v_panes = Layout::new(Direction::Vertical, constraints).split(f.area());
 
-    let min_seq_pane_width = V_SCROLLBAR_WIDTH +
-        MIN_COLS_SHOWN + BORDER_WIDTH;
+    let min_seq_pane_width = V_SCROLLBAR_WIDTH + MIN_COLS_SHOWN + BORDER_WIDTH;
     let upper_panes = Layout::new(
         Direction::Horizontal,
-        vec![Constraint::Max(ui.left_pane_width), Constraint::Min(min_seq_pane_width)],
+        vec![
+            Constraint::Max(ui.left_pane_width),
+            Constraint::Min(min_seq_pane_width),
+        ],
     )
     .split(v_panes[0]);
     let lbl_num_pane_num_cols = ui.seq_num_pane_width();
@@ -605,7 +604,10 @@ fn make_layout(f: &Frame, ui: &UI) -> Panes {
     .split(upper_panes[0]);
     let lower_panes = Layout::new(
         Direction::Horizontal,
-        vec![Constraint::Max(ui.left_pane_width), Constraint::Fill(min_seq_pane_width)],
+        vec![
+            Constraint::Max(ui.left_pane_width),
+            Constraint::Fill(min_seq_pane_width),
+        ],
     )
     .split(v_panes[1]);
 
@@ -770,6 +772,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
     debug!("render_alignment_pane(): aln width={}", seq[0].spans.len());
     let title = compute_title(ui, &seq);
     let aln_block = Block::default().title(title).borders(Borders::ALL);
+    let inner_aln_block = aln_block.inner(aln_chunk);
 
     if ui.show_zb_guides {
         if ui.zoom_level == ZoomLevel::ZoomedIn {
@@ -794,12 +797,13 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
         video_mode: ui.video_mode,
         theme: &ui.theme(),
         colormap: ui.color_scheme().current_residue_colormap(),
-        base_style: Style::default()
+        base_style: Style::default(),
     };
 
     // let seq_para = Paragraph::new(seq).block(aln_block);
     // f.render_widget(seq_para, aln_chunk);
-    f.render_widget(pane, aln_chunk);
+    f.render_widget(aln_block, aln_chunk);
+    f.render_widget(pane, inner_aln_block);
 
     if ui.zoom_level == ZoomLevel::ZoomedIn && ui.show_scrollbars {
         let zoombox_color = ui.get_zoombox_color();
@@ -897,8 +901,7 @@ fn mark_consensus_zb_pos(consensus: &mut [Span], ui: &UI) {
 
 fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
     let colormap = ui.color_scheme().current_residue_colormap();
-    let btm_block = Block::default()
-        .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM);
+    let btm_block = Block::default().borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM);
 
     let mut colored_consensus: Vec<Span> = ui
         .app
@@ -953,24 +956,28 @@ fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
 
 fn render_modeline(f: &mut Frame, last_content_line: u16, ui: &mut UI) {
     // Do not write anything if BOTH prefix and msg are ""
-    if ui.app.current_message().prefix.is_empty() &&
-       ui.app.current_message().message.is_empty() {
-           return;
+    if ui.app.current_message().prefix.is_empty() && ui.app.current_message().message.is_empty() {
+        return;
     }
 
-    let modeline_rect = Rect {x: 1, y: last_content_line,
+    let modeline_rect = Rect {
+        x: 1,
+        y: last_content_line,
         width: f.area().width - (2 * BORDER_WIDTH),
-        height: 1};
+        height: 1,
+    };
     // without '└ ', the modeline would start in the very bottom left.
     let corner_span = Span::raw(" ");
-    let message_span = Span::styled(format!("{}{}",
-                &*ui.app.current_message().prefix,
-                &*ui.app.current_message().message),
-            style_for(&ui.app.current_message().kind)
-        );
+    let message_span = Span::styled(
+        format!(
+            "{}{}",
+            &*ui.app.current_message().prefix,
+            &*ui.app.current_message().message
+        ),
+        style_for(&ui.app.current_message().kind),
+    );
     let spacer_span = Span::raw(" ");
-    let modeline = Line::from(vec![corner_span,
-        message_span, spacer_span]);
+    let modeline = Line::from(vec![corner_span, message_span, spacer_span]);
     f.render_widget(modeline, modeline_rect);
 }
 
@@ -1030,9 +1037,11 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
     render_alignment_pane(f, layout_panes.sequence, ui);
     render_corner_pane(f, layout_panes.corner, ui);
     render_bottom_pane(f, layout_panes.bottom, ui);
-    render_modeline(f,
-        layout_panes.lbl_num.height+layout_panes.corner.height - 1,
-        ui);
+    render_modeline(
+        f,
+        layout_panes.lbl_num.height + layout_panes.corner.height - 1,
+        ui,
+    );
 
     if ui.input_mode == InputMode::Help {
         render_help_dialog(f, layout_panes.dialog);

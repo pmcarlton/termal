@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// 
+//
 // Copyright (c) 2025 Thomas Junier
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -7,7 +7,7 @@ use log::debug;
 
 use crate::ui::{
     InputMode,
-    InputMode::{Help, Normal, PendingCount, LabelSearch, Search},
+    InputMode::{Help, LabelSearch, Normal, PendingCount, Search},
     //SearchDirection,
 };
 
@@ -21,7 +21,10 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         Help => ui.input_mode = InputMode::Normal,
         PendingCount { count } => done = handle_pending_count_key(ui, key_event, count),
         LabelSearch { pattern } => handle_label_search(ui, key_event, &pattern),
-        Search { pattern: _, direction: _ } => todo!(),
+        Search {
+            pattern: _,
+            direction: _,
+        } => todo!(),
     };
     done
 }
@@ -46,11 +49,12 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
         // TODO: search
         KeyCode::Char('?') => ui.input_mode = InputMode::Help,
         KeyCode::Char('"') => {
-            ui.input_mode = InputMode::LabelSearch{
+            ui.input_mode = InputMode::LabelSearch {
                 pattern: String::from(""),
             };
-            ui.app.argument_msg(String::from("Label search: "), String::from(""));
-        },
+            ui.app
+                .argument_msg(String::from("Label search: "), String::from(""));
+        }
         // Anything else: dispatch corresponding command, without count
         _ => dispatch_command(ui, key_event, None),
     }
@@ -61,9 +65,11 @@ fn handle_pending_count_key(ui: &mut UI, key_event: KeyEvent, count: usize) -> b
     let mut done = false;
     match key_event.code {
         KeyCode::Char(c) if c.is_ascii_digit() => {
-            let d = (c as u8 - b'0') as usize; 
+            let d = (c as u8 - b'0') as usize;
             let updated_count = count.saturating_mul(10).saturating_add(d);
-            ui.input_mode = InputMode::PendingCount { count: updated_count };
+            ui.input_mode = InputMode::PendingCount {
+                count: updated_count,
+            };
             ui.app.add_argument_char(c);
         }
         // Q, q, and Ctrl-C quit
@@ -92,19 +98,23 @@ fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str) {
             ui.app.add_argument_char(c);
             let mut updated_pattern = pattern.to_string();
             updated_pattern.push(c);
-            ui.input_mode = InputMode::LabelSearch { pattern: updated_pattern }
+            ui.input_mode = InputMode::LabelSearch {
+                pattern: updated_pattern,
+            }
         }
-        KeyCode::Delete | KeyCode::Backspace  => {
+        KeyCode::Delete | KeyCode::Backspace => {
             ui.app.pop_argument_char();
             let mut updated_pattern = pattern.to_string();
             updated_pattern.pop();
-            ui.input_mode = InputMode::LabelSearch { pattern: updated_pattern };
+            ui.input_mode = InputMode::LabelSearch {
+                pattern: updated_pattern,
+            };
         }
         KeyCode::Enter => {
             ui.app.regex_search_labels(pattern);
             ui.input_mode = InputMode::Normal;
             //if let Some(_) = &ui.app.search_state {
-                ui.jump_to_next_lbl_match(0);
+            ui.jump_to_next_lbl_match(0);
             //}
         }
         _ => {}
@@ -199,7 +209,9 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Up
         KeyCode::Char('k') => match ui.zoom_level() {
             ZoomLevel::ZoomedIn => ui.scroll_one_line_up(count as u16),
-            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_up(count as u16),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                ui.scroll_zoombox_one_line_up(count as u16)
+            }
         },
         KeyCode::Char('K') => ui.scroll_one_screen_up(count as u16),
         KeyCode::Char('g') => ui.jump_to_top(),
@@ -207,7 +219,9 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Left
         KeyCode::Char('h') => match ui.zoom_level() {
             ZoomLevel::ZoomedIn => ui.scroll_one_col_left(count as u16),
-            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_col_left(count as u16),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                ui.scroll_zoombox_one_col_left(count as u16)
+            }
         },
         KeyCode::Char('H') => ui.scroll_one_screen_left(count as u16),
         KeyCode::Char('^') => ui.jump_to_begin(),
@@ -215,7 +229,9 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Down
         KeyCode::Char('j') => match ui.zoom_level() {
             ZoomLevel::ZoomedIn => ui.scroll_one_line_down(count as u16),
-            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_line_down(count as u16),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                ui.scroll_zoombox_one_line_down(count as u16)
+            }
         },
         KeyCode::Char('J') | KeyCode::Char(' ') => ui.scroll_one_screen_down(count as u16),
         KeyCode::Char('G') => ui.jump_to_bottom(),
@@ -223,7 +239,9 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Right
         KeyCode::Char('l') => match ui.zoom_level() {
             ZoomLevel::ZoomedIn => ui.scroll_one_col_right(count as u16),
-            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => ui.scroll_zoombox_one_col_right(count as u16),
+            ZoomLevel::ZoomedOut | ZoomLevel::ZoomedOutAR => {
+                ui.scroll_zoombox_one_col_right(count as u16)
+            }
         },
         KeyCode::Char('L') => ui.scroll_one_screen_right(count as u16),
         KeyCode::Char('$') => ui.jump_to_end(),
@@ -316,7 +334,6 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Filter alignment through external command (à la Vim's '!')
         KeyCode::Char('!') => ui.app.warning_msg("Filtering not implemented yet"),
         KeyCode::Char(':') => ui.app.warning_msg("Ex mode not implemented yet"),
-
 
         _ => {
             // let the user know this key is not bound

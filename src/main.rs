@@ -256,10 +256,12 @@ fn main() -> Result<(), TermalError> {
             app_ui.prev_colormap();
         }
 
+        terminal.draw(|f| render_ui(f, &mut app_ui))?;
         // main loop
         loop {
-            debug!("\n**** Draw Iteration ****");
-            debug!("terminal size: {:?}", terminal.size().unwrap());
+            //debug!("\n**** Draw Iteration ****");
+            //debug!("terminal size: {:?}", terminal.size().unwrap());
+            /*
             terminal.draw(|f| render_ui(f, &mut app_ui))?;
             // handle events
             if event::poll(std::time::Duration::from_millis(cli.poll_wait_time))? {
@@ -271,6 +273,22 @@ fn main() -> Result<(), TermalError> {
                             break;
                         }
                     }
+                }
+            }
+            */
+            // Wait for an event (or timeout)
+            //let mut dirty = true;
+            if event::poll(std::time::Duration::from_millis(cli.poll_wait_time))? {
+                match event::read()? {
+                    event::Event::Key(key) if key.kind == KeyEventKind::Press => {
+                        let done = handle_key_press(&mut app_ui, key);
+                        if done { break; }
+                        terminal.draw(|f| render_ui(f, &mut app_ui))?;
+                    }
+                    event::Event::Resize(_, _) => {
+                        terminal.draw(|f| render_ui(f, &mut app_ui))?;
+                    }
+                    _ => {}
                 }
             }
         }
