@@ -1,14 +1,7 @@
-use ratatui::style::{
-    Color,
-    Modifier,
-    Style,
-};
+use ratatui::style::{Color, Modifier, Style};
 
 use crate::{
-        ui::{
-        VideoMode,
-        Theme,
-    },
+    ui::{Theme, VideoMode},
     UI,
 };
 

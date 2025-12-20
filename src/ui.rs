@@ -8,6 +8,7 @@ pub mod key_handling;
 pub mod render;
 mod msg_theme;
 mod style;
+mod zoombox;
 
 use std::{
         cmp::{max, min},

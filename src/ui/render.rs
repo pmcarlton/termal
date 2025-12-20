@@ -15,10 +15,7 @@ use crate::{
         barchart::{value_to_hbar, values_barchart},
         color_scheme::Theme,
         msg_theme::style_for,
-        style::{
-            build_style_lut,
-            get_residue_style,
-        },
+        style::{build_style_lut, get_residue_style},
         AlnWRTSeqPane, BottomPanePosition, InputMode, VideoMode, BORDER_WIDTH, MIN_COLS_SHOWN,
         V_SCROLLBAR_WIDTH,
     },
@@ -229,143 +226,6 @@ fn zoom_out_ar_seq_text<'a>(ui: &UI) -> Vec<Line<'a>> {
     }
 
     ztext
-}
-
-// Auxiliary fn for mark_zoombox() - _could_ use an internal fn or a closure, but that would make
-// the function too long for my taste.
-//
-fn mark_zoombox_general_case(
-    seq_para: &mut [Line],
-    zb_top: usize,
-    zb_bottom: usize,
-    zb_left: usize,
-    zb_right: usize,
-    zb_style: Style,
-) {
-    let mut l: &mut Line = &mut seq_para[zb_top];
-    for c in zb_left + 1..zb_right {
-        let _ = std::mem::replace(&mut l.spans[c], Span::styled("─", zb_style));
-    }
-    let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("┌", zb_style));
-    let _ = std::mem::replace(&mut l.spans[zb_right - 1], Span::styled("┐", zb_style));
-
-    // NOTE: Clippy suggests using an iterator here, but if I want, say, residues 600-680, then
-    // there are going to be 600 useless iterations. I imagine indexing is faster, though
-    // admittedly I did not benchmark it... except with my eye-o-meter, which indeed did not detect
-    // any difference on a 11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz machine running WSL2, and
-    // a 144-column by 33-lines terminal.
-
-    // mine
-    /*
-    for s in zb_top+1 .. zb_bottom {
-        l = &mut seq_para[s];
-        let _ = std::mem::replace(&mut l.spans[zb_left], Span::raw("│"));
-        let _ = std::mem::replace(&mut l.spans[zb_right-1], Span::raw("│"));
-    }
-    */
-
-    // Clippy
-    // /*
-    for l in seq_para.iter_mut().take(zb_bottom).skip(zb_top + 1) {
-        // let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("│", zb_style));
-        let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("│", zb_style));
-        let _ = std::mem::replace(&mut l.spans[zb_right - 1], Span::styled("│", zb_style));
-    }
-    //*/
-    l = &mut seq_para[zb_bottom - 1];
-    //FIXME: it should not be necessary to iterate _twice_ from zb_left+1 to zb_right
-    for c in zb_left + 1..zb_right {
-        let _ = std::mem::replace(&mut l.spans[c], Span::styled("─", zb_style));
-    }
-    let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("└", zb_style));
-    let _ = std::mem::replace(&mut l.spans[zb_right - 1], Span::styled("┘", zb_style));
-}
-
-// Auxiliary fn for mark_zoombox() - see remarks on previous fn.
-
-fn mark_zoombox_zero_height(
-    seq_para: &mut [Line],
-    zb_top: usize, // zb_bottom == zb_top
-    zb_left: usize,
-    zb_right: usize,
-    zb_style: Style,
-) {
-    let l: &mut Line = &mut seq_para[zb_top];
-    let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("╾", zb_style));
-    for c in zb_left + 1..zb_right {
-        let _ = std::mem::replace(&mut l.spans[c], Span::styled("─", zb_style));
-    }
-    let _ = std::mem::replace(&mut l.spans[zb_right - 1], Span::styled("╼", zb_style));
-}
-
-// Auxiliary fn for mark_zoombox() - see remarks on previous fn.
-
-fn mark_zoombox_zero_width(
-    seq_para: &mut [Line],
-    zb_top: usize,
-    zb_bottom: usize,
-    zb_left: usize, // zb_right == zb_left
-    zb_style: Style,
-) {
-    let mut l: &mut Line = &mut seq_para[zb_top];
-    let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("╿", zb_style));
-
-    for l in seq_para.iter_mut().take(zb_bottom).skip(zb_top + 1) {
-        let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("│", zb_style));
-    }
-
-    l = &mut seq_para[zb_bottom - 1];
-    let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("╽", zb_style));
-}
-
-// Auxiliary fn for mark_zoombox() - see remarks on previous fn.
-//
-fn mark_zoombox_point(
-    seq_para: &mut [Line],
-    zb_top: usize,
-    zb_left: usize, // zb_bottom == zb_top, zb_right == zb_left
-    zb_style: Style,
-) {
-    let l: &mut Line = &mut seq_para[zb_top];
-    let _ = std::mem::replace(&mut l.spans[zb_left], Span::styled("▯", zb_style));
-}
-
-// Draws the zoombox (just overwrites the sequence area with box-drawing characters).
-//
-fn mark_zoombox(seq_para: &mut [Line], ui: &UI) {
-    // I want zb_top to be immutable, but I may need to change it just after intialization
-    let zb_top = ui.zoombox_top();
-    let zb_bottom = ui.zoombox_bottom(seq_para.len());
-    let zb_left = ui.zoombox_left();
-    let zb_right = ui.zoombox_right(seq_para[0].spans.len());
-    /*
-    let mut zb_right: usize =
-        (((ui.leftmost_col + ui.max_nb_col_shown()) as f64) * ui.h_ratio()).round() as usize;
-    // If w_a < w_p
-    if zb_right > ui.app.aln_len() as usize {
-        zb_right = ui.app.aln_len() as usize;
-    }
-    ui.assert_invariants();
-    */
-
-    let zoombox_color = ui.get_zoombox_color();
-    let zb_style = Style::new().fg(zoombox_color);
-
-    if zb_bottom - zb_top < 2 {
-        if zb_right - zb_left < 2 {
-            // Zoom box is on a single line & column
-            mark_zoombox_point(seq_para, zb_top, zb_left, zb_style);
-        } else {
-            // Zoom box has a height of 1 line
-            mark_zoombox_zero_height(seq_para, zb_top, zb_left, zb_right, zb_style);
-        }
-    } else if zb_right - zb_left < 2 {
-        // Zoom box has a width of 1 column
-        mark_zoombox_zero_width(seq_para, zb_top, zb_bottom, zb_left, zb_style);
-    } else {
-        // General case: height and width both > 1
-        mark_zoombox_general_case(seq_para, zb_top, zb_bottom, zb_left, zb_right, zb_style);
-    }
 }
 
 // TODO: guides (as well as the whole consensus-at-the-bottom idea) are arguably obsolete.
@@ -641,6 +501,7 @@ fn compute_title(ui: &UI) -> String {
     )
 }
 
+/*
 // TODO: will be replaced by a SeqPane
 fn compute_aln_pane_text<'a>(ui: &'a UI<'a>) -> Vec<Line<'a>> {
     let mut sequences: Vec<Line>;
@@ -665,6 +526,7 @@ fn compute_aln_pane_text<'a>(ui: &'a UI<'a>) -> Vec<Line<'a>> {
 
     sequences
 }
+*/
 
 fn compute_labels_pane_text<'a>(ui: &'a UI<'a>) -> Vec<Line<'a>> {
     let labels: Vec<Line> = match ui.zoom_level {
@@ -759,6 +621,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
             f.render_widget(pane, inner_aln_block);
         }
         ZoomLevel::ZoomedOut => {
+            let zoombox_color = ui.get_zoombox_color();
             let pane = SeqPaneZoomedOut {
                 sequences: &ui.app.alignment.sequences,
                 ordering: &ui.app.ordering,
@@ -766,6 +629,11 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
                 retained_cols: &retained_col_ndx(ui),
                 style_lut: &style_lut,
                 base_style: Style::default(),
+                zb_top: ui.zoombox_top(),
+                zb_bottom: ui.zoombox_bottom(retained_seq_ndx(ui).len()),
+                zb_left: ui.zoombox_left(),
+                zb_right: ui.zoombox_right(retained_col_ndx(ui).len()),
+                zb_style: Style::new().fg(zoombox_color),
             };
             f.render_widget(pane, inner_aln_block);
         }

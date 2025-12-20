@@ -4,14 +4,20 @@ use ratatui::{
     widgets::Widget,
 };
 
-use crate::ui::{color_map::ColorMap, style::get_residue_style, Theme, VideoMode};
+use crate::ui::{
+    color_map::ColorMap,
+    style::get_residue_style,
+    zoombox::draw_zoombox_border,
+    Theme,
+    VideoMode,
+};
 
 pub struct SeqPane<'a> {
     pub sequences: &'a [String],
     pub ordering: &'a [usize],
     pub top_i: usize,
     pub left_j: usize,
-    pub style_lut: &'a[Style], 
+    pub style_lut: &'a [Style],
     // TODO: not sure this is required - if not, also remove from other SeqPane* structs
     pub base_style: Style, // optional, for clearing/background
 }
@@ -54,12 +60,17 @@ impl<'a> Widget for SeqPane<'a> {
 }
 
 pub struct SeqPaneZoomedOut<'a> {
-    pub sequences: &'a [String],        // alignment.sequences
-    pub ordering:  &'a [usize],         // ordering map
-    pub retained_rows: &'a [usize],     // indices into "logical rows" (i in your old code)
-    pub retained_cols: &'a [usize],     // indices into alignment columns (j)
-    pub style_lut: &'a [Style],         // style per byte (0..=255)
-    pub base_style: Style,              // for clearing/background
+    pub sequences: &'a [String],    // alignment.sequences
+    pub ordering: &'a [usize],      // ordering map
+    pub retained_rows: &'a [usize], // indices into "logical rows" (i in your old code)
+    pub retained_cols: &'a [usize], // indices into alignment columns (j)
+    pub style_lut: &'a [Style],     // style per byte (0..=255)
+    pub base_style: Style,          // for clearing/background
+    pub zb_top: usize,
+    pub zb_bottom: usize,
+    pub zb_left: usize,
+    pub zb_right: usize,
+    pub zb_style: Style,
 }
 
 impl<'a> Widget for SeqPaneZoomedOut<'a> {
@@ -102,5 +113,16 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
                     .set_style(style);
             }
         }
+
+        // TODO: make this conditional on ui.show_zoombox
+        draw_zoombox_border(
+            buf,
+            area,
+            self.zb_top,
+            self.zb_bottom,
+            self.zb_left,
+            self.zb_right,
+            self.zb_style,
+        );
     }
 }
