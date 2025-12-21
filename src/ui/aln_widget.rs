@@ -5,11 +5,7 @@ use ratatui::{
 };
 
 use crate::ui::{
-    color_map::ColorMap,
-    style::get_residue_style,
-    zoombox::draw_zoombox_border,
-    Theme,
-    VideoMode,
+    color_map::ColorMap, style::get_residue_style, zoombox::draw_zoombox_border, Theme, VideoMode,
 };
 
 pub struct SeqPane<'a> {
@@ -62,8 +58,8 @@ impl<'a> Widget for SeqPane<'a> {
 pub struct SeqPaneZoomedOut<'a> {
     pub sequences: &'a [String],    // alignment.sequences
     pub ordering: &'a [usize],      // ordering map
-    pub retained_rows: &'a [usize], // indices into "logical rows" 
-    pub retained_cols: &'a [usize], // indices into alignment columns 
+    pub retained_rows: &'a [usize], // indices into "logical rows"
+    pub retained_cols: &'a [usize], // indices into alignment columns
     pub style_lut: &'a [Style],     // style per byte (0..=255)
     pub base_style: Style,          // for clearing/background
     pub show_zoombox: bool,
@@ -95,14 +91,18 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
         for r in 0..max_r {
             let i = self.retained_rows[r];
             // should never happen
-            if i >= self.ordering.len() { panic!(); }
+            if i >= self.ordering.len() {
+                panic!();
+            }
 
             let seq_bytes = self.sequences[self.ordering[i]].as_bytes();
 
             for c in 0..max_c {
                 let j = self.retained_cols[c];
                 // should never happen
-                if j >= seq_bytes.len() { panic!(); }
+                if j >= seq_bytes.len() {
+                    panic!();
+                }
 
                 let b = seq_bytes[j];
                 let style = self.style_lut[b as usize];
