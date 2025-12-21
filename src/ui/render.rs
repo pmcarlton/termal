@@ -892,7 +892,7 @@ pub fn every_nth(l: usize, n: usize) -> Vec<usize> {
     if n >= l {
         (0..l).collect()
     } else {
-        let step: f32 = (l - 1) as f32 / (n - 1) as f32;
+        let step: f32 = (l.saturating_sub(1)) as f32 / (n.saturating_sub(1)) as f32;
         let r: Vec<usize> = (0..n)
             .map(|e| ((e as f32) * step).round() as usize)
             .collect();

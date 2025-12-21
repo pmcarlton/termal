@@ -369,7 +369,6 @@ impl<'a> UI<'a> {
         self.show_zoombox = !self.show_zoombox;
     }
 
-    // TODO: do we really need seq_para_len? Or can we just use self.app.num_seq?
     pub fn zoombox_top(&self) -> usize {
         match self.zoom_level {
             ZoomLevel::ZoomedOut => ((self.top_line as f64) * self.v_ratio()).floor() as usize,
@@ -377,7 +376,7 @@ impl<'a> UI<'a> {
                 let ratio = self.common_ratio();
                 let mut zb_top = ((self.top_line as f64) * ratio).floor() as usize;
                 if zb_top >= self.max_nb_seq_shown() as usize {
-                    zb_top = (self.max_nb_seq_shown() as usize) - 1;
+                    zb_top = (self.max_nb_seq_shown() as usize).saturating_sub(1);
                 }
                 zb_top
             }
