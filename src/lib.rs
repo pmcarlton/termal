@@ -1,6 +1,6 @@
 pub mod app;
 mod runner;
-mod seq;
+pub mod seq;
 mod vec_f64_aux;
 pub mod alignment;
 pub mod errors;

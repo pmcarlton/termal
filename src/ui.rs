@@ -209,9 +209,14 @@ impl<'a> UI<'a> {
         }
     }
 
-    /* The following are only called internally. */
+    /****************************************************************/
+    // Location within the alignment
 
-    fn max_top_line(&self) -> u16 {
+    pub fn top_line(&self) -> u16 { self.top_line }
+    pub fn leftmost_col(&self) -> u16 { self.leftmost_col }
+
+    // FIXME: use saturating arithmetic (also next fn)
+    pub fn max_top_line(&self) -> u16 {
         if self.app.num_seq() >= self.max_nb_seq_shown() {
             self.app.num_seq() - self.max_nb_seq_shown()
         } else {
@@ -219,7 +224,7 @@ impl<'a> UI<'a> {
         }
     }
 
-    fn max_leftmost_col(&self) -> u16 {
+    pub fn max_leftmost_col(&self) -> u16 {
         if self.app.aln_len() >= self.max_nb_col_shown() {
             self.app.aln_len() - self.max_nb_col_shown()
         } else {
