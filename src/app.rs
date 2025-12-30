@@ -260,7 +260,7 @@ impl App {
     // Label search
 
     pub fn regex_search_labels(&mut self, pattern: &str) {
-        self.debug_msg("Regex search");
+        // self.debug_msg("Regex search");
         let try_re = Regex::new(pattern);
         match try_re {
             Ok(re) => {
@@ -541,11 +541,26 @@ mod tests {
 
 
     #[test]
-    fn test_regex_lbl_search_10() { todo!(); }
+    fn test_regex_lbl_search_10() {
+        let hdrs = vec![
+            String::from("Accipiter"),
+            String::from("Aquila"),
+            String::from("Milvus"),
+            String::from("Buteo"),
+            String::from("Pernis"),
+        ];
+        let seqs = vec![
+            String::from("catgcatatg"), // 0 diffs WRT consensus
+            String::from("caGgAaCaAg"), // 4 diffs WRT consensus
+            String::from("catAcTtatg"), // 2 diffs WRT consensus
+            String::from("cCtgcatatg"), // 1 diffs WRT consensus
+            String::from("caGgAataAg"), // 3 diffs WRT consensus
+        ];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.regex_search_labels("^A");
+        todo!();
 
-    #[test]
-    // TODO: change the c'tor so that we can build Apps from literals instead of having to open an
-    // alignment file.
-    // Then make some simple apps and test the App methods on them.
-    fn test_create_app_00() { todo!(); }
+    }
+
 }
