@@ -76,3 +76,11 @@ pub fn with_rig<F>(
     // Events and assertions here
     f(&mut ui, &mut terminal);
 }
+
+pub fn screen_line(buffer: &Buffer, y: u16) -> String {
+    let screen = buffer.area;
+    (0..screen.width)
+        .map(|x| buffer.get(x, y).symbol())
+        .collect()
+}
+
