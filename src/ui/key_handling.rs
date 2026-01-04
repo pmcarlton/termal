@@ -113,9 +113,9 @@ fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str) {
         KeyCode::Enter => {
             ui.app.regex_search_labels(pattern);
             ui.input_mode = InputMode::Normal;
-            //if let Some(_) = &ui.app.search_state {
-            ui.jump_to_next_lbl_match(0);
-            //}
+            if let Some(_) = &ui.app.search_state { // Could be a malformed regex
+                ui.jump_to_next_lbl_match(0);
+            }
         }
         _ => {}
     }

@@ -276,7 +276,44 @@ fn test_label_search_del() {
 }
 
 #[test]
+/// Tests that passing a malformed regex causes the expected error message to appear in the
+/// modeline
 fn test_label_search_malformed() {
-    // pass a malformed regex and ck that the expected error message appears in the modeline
-    todo!();
+    utils::with_rig("tests/data/test-motion.msa",
+        screen_width, screen_height,
+        |mut ui, terminal| {
+        let key_double_quote = utils::keypress('"');
+        let last_line_y = screen_height - 1;
+
+        // We enter label search ("), then enter a malformed regex "["), then hit Enter. We expect
+        // an error message saying that the regex is malformed.
+
+        key_handling::handle_key_press(ui, key_double_quote);
+        key_handling::handle_key_press(ui, utils::keypress('['));
+        key_handling::handle_key_press(ui, KeyCode::Enter.into());
+        terminal.draw(|f| render::render_ui(f, &mut ui)).expect("update");
+        let buffer = terminal.backend().buffer();
+        let last_line = utils::screen_line(&buffer, last_line_y);
+
+        let expected = "ERROR: Malformed regex";
+        assert!(
+            last_line.contains(expected),
+            "\"{}\" not found on last line: {}",
+            expected, last_line
+        );
+
+        // Pressing Esc should clear modeline
+
+        key_handling::handle_key_press(ui, KeyCode::Esc.into());
+        terminal.draw(|f| render::render_ui(f, &mut ui)).expect("update");
+        let buffer = terminal.backend().buffer();
+        let last_line = utils::screen_line(&buffer, last_line_y);
+
+        let expected = "└─────────────────└─";
+        assert!(
+            last_line.contains(expected),
+            "\"{}\" not found on last line: {}", 
+            expected, last_line
+        );
+    });
 }
