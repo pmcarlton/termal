@@ -24,7 +24,7 @@ use crate::ui::{
     UI,
 };
 
-use clap::{arg, command, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 
 use crossterm::{
     event::{self, KeyEventKind},
