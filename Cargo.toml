@@ -1,11 +1,11 @@
 [package]
 name = "termal-msa"
-version = "1.2.1"
+version = "1.3.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/sib-swiss/termal"
 readme = "README.crates.md"
-description = "A viewer of multiple sequence alignments, with a text-based user interface"
+description = "A viewer of multiple sequence alignments, with a text user interface"
 keywords = ["multiple-alignment", "viewer", "terminal", "TUI"]
 categories = ["science::bioinformatics", "science::bioinformatics::sequence-analysis", "command-line-utilities"]
 include = ["**/*.rs", "src/ui/bindings.md", "Cargo.toml", "README.crates.md", "data/example-1.msa", "data/CD00377_ICL-PEPM_wDesc.msa", "data/PF00244.26.sto"]
