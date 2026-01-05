@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT 
+// Copyright (c) 2025 Thomas Junier 
+
 pub mod app;
 mod runner;
 pub mod seq;

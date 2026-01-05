@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT 
+// Copyright (c) 2025 Thomas Junier 
+
 use crate::app::MessageKind;
 use ratatui::style::{Color, Style};
 

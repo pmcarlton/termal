@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT 
+// Copyright (c) 2025 Thomas Junier 
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, KeyEventKind};
 
 use ratatui::{
