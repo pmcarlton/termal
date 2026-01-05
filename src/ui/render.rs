@@ -229,50 +229,6 @@ fn zoom_out_ar_seq_text<'a>(ui: &UI) -> Vec<Line<'a>> {
     ztext
 }
 
-// TODO: guides (as well as the whole consensus-at-the-bottom idea) are arguably obsolete.
-
-// Draws guides from the scale to the zoom box (hence, only meaningful in one of the zoomed-out
-// modes, and only if there are empty lines). TODO: to avoid having to specify a lifetime, try
-// passing relevant info (i.e., seq_para's length, zoombox's left and right cols, etc.)
-//
-fn draw_zoombox_guides<'a>(aln_bottom: usize, aln_len: usize, ui: &'a UI<'a>) -> Vec<Line<'a>> {
-    let mut guides: Vec<Line> = Vec::new();
-    let zb_left = ui.zoombox_left();
-    let zb_right = ui.zoombox_right(aln_len);
-
-    // position of left guide
-    let left_guide_pos = |j: usize| {
-        let h = ui.max_nb_seq_shown() as f64;
-        let slope = zb_left as f64 / (aln_bottom as f64 - h);
-        (slope * j as f64 - slope * h).round() as usize
-    };
-
-    // position of right guide
-    let right_guide_pos = |j: usize| {
-        // -1: align the right guide to the last col of the alignment.
-        let right_zb_pos = (zb_right - 1) as f64;
-        let slope = ((ui.max_nb_col_shown() - 1) as f64 - right_zb_pos)
-            / (ui.max_nb_seq_shown() as usize - aln_bottom) as f64;
-        let y_int = right_zb_pos - aln_bottom as f64 * slope;
-        (slope * j as f64 + y_int).round() as usize
-    };
-
-    for j in aln_bottom + 1..ui.max_nb_seq_shown() as usize {
-        let mut line = String::new();
-        let left_guide_col = left_guide_pos(j);
-        let right_guide_col = right_guide_pos(j);
-        for i in 0..ui.max_nb_col_shown() as usize {
-            if i == left_guide_col || i == right_guide_col {
-                line.push('.');
-            } else {
-                line.push(' ');
-            }
-        }
-        guides.push(Line::from(line));
-    }
-
-    guides
-}
 
 // Draws the zoombox, but preserving aspect ratio
 //
