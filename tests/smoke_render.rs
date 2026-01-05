@@ -7,7 +7,6 @@ use crate::common::utils;
 
 use termal_msa::alignment::Alignment;
 use termal_msa::app::App;
-use termal_msa::ui::UI;
 
 #[test]
 fn renders_without_panic() {

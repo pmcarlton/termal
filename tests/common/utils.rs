@@ -4,9 +4,9 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, KeyEventKind};
 
 use ratatui::{
-    backend::{Backend, TestBackend},
+    backend::TestBackend,
     buffer::Buffer,
-    prelude::{Rect, Terminal},
+    prelude::{Rect, Position, Terminal},
     TerminalOptions,
     Viewport,
 };
@@ -15,7 +15,6 @@ use termal_msa::{
     alignment::Alignment,
     app::App,
     ui::{
-        key_handling, 
         render,
         render::render_ui,
         UI,
@@ -23,6 +22,7 @@ use termal_msa::{
     seq::fasta,
 };
 
+#[allow(dead_code)]
 pub fn render(app: &mut App, w: u16, h: u16) -> Buffer {
     let backend = TestBackend::new(w, h);
     let mut terminal = Terminal::new(backend).expect("terminal");
@@ -31,12 +31,14 @@ pub fn render(app: &mut App, w: u16, h: u16) -> Buffer {
     terminal.backend().buffer().clone()
 }
 
+#[allow(dead_code)]
 pub fn buffer_text(buf: &Buffer) -> String {
     let area = buf.area;
     let mut out = String::new();
     for y in 0..area.height {
         for x in 0..area.width {
-            out.push(buf.get(x, y)
+            out.push(buf.cell(Position::from((x, y)))
+                .expect("Wrong position")
                 .symbol()
                 .chars()
                 .next()
@@ -47,6 +49,7 @@ pub fn buffer_text(buf: &Buffer) -> String {
     out
 }
 
+#[allow(dead_code)]
 pub fn keypress(c: char) -> KeyEvent {
     KeyEvent {
         code: KeyCode::Char(c),
@@ -56,6 +59,7 @@ pub fn keypress(c: char) -> KeyEvent {
     }
 }
 
+#[allow(dead_code)]
 pub fn with_rig<F>(
     path: &str,
     term_width: u16,
@@ -64,7 +68,7 @@ pub fn with_rig<F>(
     where
         F: FnMut(&mut UI, &mut Terminal<TestBackend>),
 {
-    let seq_file = fasta::read_fasta_file("tests/data/test-motion.msa").expect("read");
+    let seq_file = fasta::read_fasta_file(path).expect("read");
     let aln = Alignment::from_file(seq_file);
     let mut app = App::new("TEST", aln, None);
     let mut ui = UI::new(&mut app);
@@ -80,10 +84,13 @@ pub fn with_rig<F>(
     f(&mut ui, &mut terminal);
 }
 
+#[allow(dead_code)]
 pub fn screen_line(buffer: &Buffer, y: u16) -> String {
     let screen = buffer.area;
     (0..screen.width)
-        .map(|x| buffer.get(x, y).symbol())
+        .map(|x| buffer.cell(Position::from((x, y)))
+            .expect("Wrong position")
+            .symbol())
         .collect()
 }
 

@@ -12,17 +12,17 @@ use termal_msa::ui::{
     render,
 };
 
-const screen_width: u16 = 80;
-const screen_height: u16 = 50;
+const SCREEN_WIDTH: u16 = 80;
+const SCREEN_HEIGHT: u16 = 50;
 
 #[test]
 /// Tests a whole label search, for a label that is found in the alignment.
 fn test_label_search() {
     utils::with_rig("tests/data/test-motion.msa",
-        screen_width, screen_height,
+        SCREEN_WIDTH, SCREEN_HEIGHT,
         |mut ui, terminal| {
         let key_double_quote = utils::keypress('"');
-        let last_line_y = screen_height - 1;
+        let last_line_y = SCREEN_HEIGHT - 1;
 
         // Pressing " should cause "Label search:" to appear on last line
 
@@ -57,7 +57,7 @@ fn test_label_search() {
         // "match #1/8" to appear in the modeline. The 1st match happens to be 14 lines from screen
         // bottom.
 
-        let first_match_line_y = screen_height - 14;
+        let first_match_line_y = SCREEN_HEIGHT - 14;
         key_handling::handle_key_press(ui, KeyCode::Enter.into());
         terminal.draw(|f| render::render_ui(f, &mut ui)).expect("update");
         let buffer = terminal.backend().buffer();
@@ -164,10 +164,10 @@ fn test_label_search() {
 /// Tests a label search, for a label that is NOT found in the alignment.
 fn test_missing_label_search() {
     utils::with_rig("tests/data/test-motion.msa",
-        screen_width, screen_height,
+        SCREEN_WIDTH, SCREEN_HEIGHT,
         |mut ui, terminal| {
         let key_double_quote = utils::keypress('"');
-        let last_line_y = screen_height - 1;
+        let last_line_y = SCREEN_HEIGHT - 1;
 
         // We enter label search ("), then enter a label that's NOT in the alignment ("MISS")
 
@@ -222,10 +222,10 @@ fn test_missing_label_search() {
 /// Tests that the Del key works as expected
 fn test_label_search_del() {
     utils::with_rig("tests/data/test-motion.msa",
-        screen_width, screen_height,
+        SCREEN_WIDTH, SCREEN_HEIGHT,
         |mut ui, terminal| {
         let key_double_quote = utils::keypress('"');
-        let last_line_y = screen_height - 1;
+        let last_line_y = SCREEN_HEIGHT - 1;
 
         // We enter label search ("), then enter a label "MISS")
 
@@ -283,10 +283,10 @@ fn test_label_search_del() {
 /// modeline
 fn test_label_search_malformed() {
     utils::with_rig("tests/data/test-motion.msa",
-        screen_width, screen_height,
+        SCREEN_WIDTH, SCREEN_HEIGHT,
         |mut ui, terminal| {
         let key_double_quote = utils::keypress('"');
-        let last_line_y = screen_height - 1;
+        let last_line_y = SCREEN_HEIGHT - 1;
 
         // We enter label search ("), then enter a malformed regex "["), then hit Enter. We expect
         // an error message saying that the regex is malformed.
