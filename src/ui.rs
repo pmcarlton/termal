@@ -170,20 +170,7 @@ impl<'a> UI<'a> {
 
     fn max_nb_seq_shown(&self) -> u16 {
         let height = self.aln_pane_size.unwrap().height;
-        /*
-        if height >= 2 {
-            // border, should later be a constant or a field of UI
-            height - 2
-        } else {
-            // Set to null (prevents display) if not enough room
-            // NOTE: this causes v_ratio() to return 0, which in turn causes the number of retained
-            // sequences to be 0, causing render::every_nth() to crash. Maybe the minimum should be
-            // 2, not 0. TODO: prepare more tests (esp. w/ small sets), change to 2, and check.
-            // Then do the same for max_nb_col_shown().
-            0
-        }
-        */
-        height.saturating_sub(2)
+        height.saturating_sub(2)// Borders - TODO: use constants!
     }
 
     fn max_nb_col_shown(&self) -> u16 {
@@ -264,13 +251,6 @@ impl<'a> UI<'a> {
             self.frame_size.unwrap().width -
             (V_SCROLLBAR_WIDTH + MIN_COLS_SHOWN + BORDER_WIDTH)
         );
-        /*
-        self.left_pane_width = if self.left_pane_width + amount < self.frame_size.unwrap().width {
-            self.left_pane_width + amount
-        } else {
-            self.frame_size.unwrap().width
-        }
-        */
     }
 
     pub fn reduce_label_pane(&mut self, amount: u16) {

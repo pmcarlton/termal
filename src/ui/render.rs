@@ -149,45 +149,6 @@ fn get_label_num_style(theme: Theme, color: Color) -> Style {
     style
 }
 
-// Draws the zoombox, but preserving aspect ratio
-//
-//// TODO: this fn is now prolly identical with mark_zoombox()... keep only 1.
-//
-/*
-fn mark_zoombox_ar(seq_para: &mut [Line], ui: &UI) {
-    let zb_top = ui.zoombox_top(seq_para.len());
-    let zb_bottom = ui.zoombox_bottom(seq_para.len());
-
-    let zb_left = ui.zoombox_left();
-    let zb_right = ui.zoombox_right(seq_para[0].spans.len());
-    /*
-    let mut zb_right: usize =
-        (((ui.leftmost_col + ui.max_nb_col_shown()) as f64) * ratio).round() as usize;
-    // If w_a < w_p
-    if zb_right > aln_para_width as usize {
-        zb_right = aln_para_width as usize;
-    }
-    */
-    ui.assert_invariants();
-
-    if zb_bottom - zb_top < 2 {
-        if zb_right - zb_left < 2 {
-            // Zoom box is on a single line & column
-            mark_zoombox_point(seq_para, zb_top, zb_left);
-        } else {
-            // Zoom box has a height of 1 line
-            mark_zoombox_zero_height(seq_para, zb_top, zb_left, zb_right);
-        }
-    } else if zb_right - zb_left < 2 {
-        // Zoom box has a width of 1 column
-        mark_zoombox_zero_width(seq_para, zb_top, zb_bottom, zb_left);
-    } else {
-        // General case: height and width both > 1
-        mark_zoombox_general_case(seq_para, zb_top, zb_bottom, zb_left, zb_right);
-    }
-}
-*/
-
 /****************************************************************
 * Layout
 ****************************************************************/
@@ -377,33 +338,6 @@ fn compute_title(ui: &UI) -> String {
     )
 }
 
-/*
-// TODO: will be replaced by a SeqPane
-fn compute_aln_pane_text<'a>(ui: &'a UI<'a>) -> Vec<Line<'a>> {
-    let mut sequences: Vec<Line>;
-
-    match ui.zoom_level {
-        ZoomLevel::ZoomedIn => {
-            sequences = zoom_in_seq_text(ui);
-        }
-        ZoomLevel::ZoomedOut => {
-            sequences = zoom_out_seq_text(ui);
-            if ui.show_zoombox {
-                mark_zoombox(&mut sequences, ui);
-            }
-        }
-        ZoomLevel::ZoomedOutAR => {
-            sequences = zoom_out_ar_seq_text(ui);
-            if ui.show_zoombox {
-                mark_zoombox(&mut sequences, ui);
-            }
-        }
-    }
-
-    sequences
-}
-*/
-
 fn compute_labels_pane_text<'a>(ui: &'a UI<'a>) -> Vec<Line<'a>> {
     let labels: Vec<Line> = match ui.zoom_level {
         ZoomLevel::ZoomedIn => zoom_in_lbl_text(ui),
@@ -463,24 +397,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
     let aln_block = Block::default().title(title).borders(Borders::ALL);
     let inner_aln_block = aln_block.inner(aln_chunk);
 
-    /*
-    if ui.show_zb_guides {
-        if ui.zoom_level == ZoomLevel::ZoomedIn {
-            for _ in seq.len()..ui.max_nb_seq_shown() as usize {
-                let mut ticks = tick_marks(ui.app.aln_len() as usize, Some('.'), None);
-                ticks.drain(..ui.leftmost_col as usize);
-                seq.push(Line::from(ticks));
-            }
-        } else {
-            let mut guides = draw_zoombox_guides(seq.len(), seq[0].spans.len(), ui);
-            seq.append(&mut guides);
-        }
-    }
-    */
-
     f.render_widget(aln_block, aln_chunk);
-
-    // EXPERIMENTAL SeqPane
 
     let style_lut = build_style_lut(&ui);
 
