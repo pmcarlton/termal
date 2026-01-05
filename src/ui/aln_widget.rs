@@ -1,5 +1,5 @@
 use ratatui::{
-    prelude::{Buffer, Rect},
+    prelude::{Buffer, Position, Rect},
     style::Style,
     widgets::Widget,
 };
@@ -26,7 +26,7 @@ impl<'a> Widget for SeqPane<'a> {
         // Clear the pane so “extra space” doesn’t show stale cells.
         for y in 0..rows {
             for x in 0..cols {
-                buf.get_mut(area.x + x as u16, area.y + y as u16)
+                buf.cell_mut(Position::from((area.x + x as u16, area.y + y as u16))).expect("Wrong position")
                     .set_char(' ')
                     .set_style(self.base_style);
             }
@@ -47,7 +47,7 @@ impl<'a> Widget for SeqPane<'a> {
                 let b = seq[j];
                 let style = self.style_lut[b as usize];
 
-                buf.get_mut(area.x + c as u16, area.y + r as u16)
+                buf.cell_mut(Position::from((area.x + c as u16, area.y + r as u16))).expect("Wrong position")
                     .set_char(b as char)
                     .set_style(style);
             }
@@ -78,7 +78,7 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
         // Clear pane (see ZoomedIn mode)
         for y in 0..rows {
             for x in 0..cols {
-                buf.get_mut(area.x + x as u16, area.y + y as u16)
+                buf.cell_mut(Position::from((area.x + x as u16, area.y + y as u16))).expect("Wrong position")
                     .set_char(' ')
                     .set_style(self.base_style);
             }
@@ -107,7 +107,7 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
                 let b = seq_bytes[j];
                 let style = self.style_lut[b as usize];
 
-                buf.get_mut(area.x + c as u16, area.y + r as u16)
+                buf.cell_mut(Position::from((area.x + c as u16, area.y + r as u16))).expect("Wrong position")
                     .set_char(b as char)
                     .set_style(style);
             }
