@@ -38,16 +38,12 @@ Important Points
     So I'm keeping branch `squev` in case we eventually decide to implement the
     mechanism, but for now I don't merge this into `master`.
 
+    Eventually I found out how to do a direct write to the Buffer. However, it
+    did not lead to any visible improvements, which means that the program is
+    limited by the speed of the terminal emulator.
+
 Miscellaneous Ideas
 ===================
-
-* Despite the nonnegligible effort I put into them, it's not clear that the
-  guides are very useful, as the "Adjacent" mode for the bottom panel seems very
-  natural. Their main advantage is to make it very clear that the coordinates
-  apply to the zoom box (so this leaves the vertical guides in zoomed-in mode
-  without a clear purpose).
-
-* Reinstate the "blinky" consensus, at least optionally
 
 TODO
 ====
@@ -66,19 +62,60 @@ Urgent
    in very wide alignments, of course. Note that for the same reason, the
    scrollbars may stay in place even when the display moves by a screenful.
 
-1. [ ] B0021 Pressing '<' repeatedly can obscure the numbers pane.
-
-1. [ ] B0020 Pressing repeatedly '>' eventually causes a crash when the label
-   pane exceeds the width of the sequence pane.
-
 Normal
 ------
 
-1. [ ] B0019 On single-sequence alignments, aspect-preserving zooming may crash. To
-   reproduce: `termal data/test3.pep` then `Z`.  
+1. [x] App tests (based on Expect) are very unwieldy, and add an external
+   dependency. Try to achieve the same result using only Rust. => Added
+   integration tests (see `./tests`). Each such test is a separate crate, so I
+   had to move almost all the code into a library. See `b845e1a44677d41`; also
+   wrote some utils (`tests/common/utils.rs`) to help with integration testing.
+   Note that a few "screenshot" tests might still be a good idea -- just not
+   with Expect.
+
+1. [x] Despite the nonnegligible effort I put into them, it's not clear that the
+   guides are very useful, as the "Adjacent" mode for the bottom panel seems
+   very natural. Their main advantage is to make it very clear that the
+   coordinates apply to the zoom box (so this leaves the vertical guides in
+   zoomed-in mode without a clear purpose). Eventually removed them altogether,
+   as they use up code and were never even dcumented. `6aad59aaac67`.
+
+1. [x] Try writing the alignment chars directly to a Buffer instead of
+   constructing a `Vec` of `Line`s (with all the concomitant cloning). **Note**
+   that this does not visibly speed things up (confirming the hypothesis that
+   the bottleneck is the TTY, not Termal), but it does seem to use less CPU (not
+   benchmarked, but the fan no longer starts whirring as soon as I scroll :-)).
+   See `b845e1a44677d41` and previous 4 commits.
+
+1. [x] Main event loop now only writes the UI when an event requires it. For now
+   such an event is all key presses, but in the future the loop will check if
+   the UI needs to be redrawn ("dirty"), and not all key presses will require a
+   redraw (e.g., pressing `G` when already at the bottom). See `2dee4893ba7e87`
+   and neighbors.
+
+1. [x] Regexp search in sequence headers (`"`), jump to the next (`n`) or
+   previous (`p`) match (if any); both accept count arguments. This (as well as
+   all arguments) required a complete rewrite of event handling. See e.g.
+   `4179e2c6527ed2e8` to `a5936666dfbba3c018`.
+
+1. [x] Move the modeline to the lower-left corner, so that its position no
+   longer depends on the width of the left pane.
+
+1. [x] B0021 Pressing '<' repeatedly can obscure the numbers pane.
+
+1. [x] B0020 Pressing repeatedly '>' eventually causes a crash when the label
+   pane exceeds the width of the sequence pane.
+
+1. [x] B0019 On single-sequence alignments, aspect-preserving zooming may crash.
+   To reproduce: `termal data/test3.pep` then `Z`.  Fixed in `01a55ce1709326f`,
+   mostly by using saturating arithmetic.
+
+1. [x] Count argument to commands for changing the left pane's width (`5b722d5052a25ac`).
+
+1. [x] Motion commands should accept an argument, à la Vim. `c8119954ff76d3bb6f`
 
 1. [ ] On Debian/UTM, I do not seem to get the SHIFT modifer when pressing
-   Shift-Up and Shift-Down (though it works for Shift-Left and Shift-Right). Use
+   Shift-Up and Shift-Down (though it works for Shift-Left and Shift-Right).
    See src/ui/key_handling.rs:148.
 
 1. [x] Esc clears any message as well as returning to Normal input mode.
