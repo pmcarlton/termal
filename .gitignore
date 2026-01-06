@@ -20,3 +20,4 @@ termal*.zip
 *windows*
 *.zip
 *.jl
+dist
