@@ -16,14 +16,11 @@ terminal.
 
 ### Prebuilt binaries
 
-Download a binary for your platform from the GitHub releases page:
+Download a prebuilt binary from the GitHub Releases page:
+https://github.com/sib-swiss/termal/releases
 
-- **Linux (x86_64)**  
-  https://github.com/sib-swiss/termal/releases
-- **macOS (Intel / Apple Silicon)**  
-  https://github.com/sib-swiss/termal/releases
-- **Windows**  
-  https://github.com/sib-swiss/termal/releases
+For the current release (v1.3.0):
+https://github.com/sib-swiss/termal/releases/tag/v1.3.0
 
 Unpack the archive and run the binary directly.
 
