@@ -4,12 +4,12 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{
+    line_editor::LineEditor,
     InputMode,
     InputMode::{Help, LabelSearch, Normal, PendingCount, Search},
     //SearchDirection,
     {ZoomLevel, UI},
 };
-
 
 pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
     let mut done = false;
@@ -19,10 +19,7 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         Help => ui.input_mode = InputMode::Normal,
         PendingCount { count } => done = handle_pending_count_key(ui, key_event, count),
         LabelSearch { pattern } => handle_label_search(ui, key_event, &pattern),
-        Search {
-            pattern: _,
-            direction: _,
-        } => todo!(),
+        Search { editor } => handle_search(ui, key_event, editor),
     };
     done
 }
@@ -52,6 +49,13 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
             };
             ui.app
                 .argument_msg(String::from("Label search: "), String::from(""));
+        }
+        KeyCode::Char('/') => {
+            ui.input_mode = InputMode::Search {
+                editor: LineEditor::new(),
+            };
+            ui.app
+                .argument_msg(String::from("Search: "), String::from(""));
         }
         // Anything else: dispatch corresponding command, without count
         _ => dispatch_command(ui, key_event, None),
@@ -111,9 +115,48 @@ fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str) {
         KeyCode::Enter => {
             ui.app.regex_search_labels(pattern);
             ui.input_mode = InputMode::Normal;
-            if let Some(_) = &ui.app.search_state { // Could be a malformed regex
+            if let Some(_) = &ui.app.search_state {
+                // Could be a malformed regex
                 ui.jump_to_next_lbl_match(0);
             }
+        }
+        _ => {}
+    }
+}
+
+fn handle_search(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+        }
+        KeyCode::Char(c) if c.is_ascii_graphic() || c == ' ' => {
+            editor.insert_char(c);
+            ui.input_mode = InputMode::Search { editor };
+            ui.app
+                .argument_msg(String::from("Search: "), ui.search_query());
+        }
+        KeyCode::Backspace => {
+            editor.backspace();
+            ui.input_mode = InputMode::Search { editor };
+            ui.app
+                .argument_msg(String::from("Search: "), ui.search_query());
+        }
+        KeyCode::Left => {
+            editor.move_left();
+            ui.input_mode = InputMode::Search { editor };
+        }
+        KeyCode::Right => {
+            editor.move_right();
+            ui.input_mode = InputMode::Search { editor };
+        }
+        KeyCode::Home => {
+            editor.move_home();
+            ui.input_mode = InputMode::Search { editor };
+        }
+        KeyCode::End => {
+            editor.move_end();
+            ui.input_mode = InputMode::Search { editor };
         }
         _ => {}
     }
@@ -319,7 +362,13 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('T') => ui.app.prev_metric(),
 
         // ----- Search -----
-        KeyCode::Char('/') => ui.app.warning_msg("Search not implemented yet"),
+        KeyCode::Char('/') => {
+            ui.input_mode = InputMode::Search {
+                editor: LineEditor::new(),
+            };
+            ui.app
+                .argument_msg(String::from("Search: "), String::from(""));
+        }
         KeyCode::Char('?') => ui.app.warning_msg("Search not implemented yet"),
         KeyCode::Char(']') => ui.app.warning_msg("Search not implemented yet"),
         KeyCode::Char('[') => ui.app.warning_msg("Search not implemented yet"),
