@@ -11,6 +11,18 @@ use crate::{
     app::SeqOrdering::{MetricDecr, MetricIncr, SourceFile, User},
 };
 
+type SearchColor = (u8, u8, u8);
+
+const SEARCH_COLORS: [SearchColor; 8] = [
+    (255, 105, 97),
+    (119, 221, 119),
+    (135, 206, 235),
+    (255, 179, 71),
+    (255, 105, 180),
+    (176, 196, 222),
+    (255, 218, 185),
+    (152, 251, 152),
+];
 #[derive(Clone, Copy)]
 pub enum SeqOrdering {
     SourceFile,
@@ -70,6 +82,20 @@ pub struct SeqSearchState {
     pub sequences_with_matches: usize,
 }
 
+pub struct SearchEntry {
+    pub id: usize,
+    pub name: String,
+    pub query: String,
+    pub enabled: bool,
+    pub color: SearchColor,
+    pub spans_by_seq: Vec<Vec<(usize, usize)>>,
+}
+
+pub struct SearchRegistry {
+    searches: Vec<SearchEntry>,
+    next_color_index: usize,
+}
+
 #[derive(Clone)]
 pub enum MessageKind {
     Info,
@@ -101,6 +127,7 @@ pub struct App {
     user_ordering: Option<Vec<String>>,
     pub search_state: Option<SearchState>,
     seq_search_state: Option<SeqSearchState>,
+    search_registry: SearchRegistry,
     current_msg: CurrentMessage,
 }
 
@@ -122,6 +149,7 @@ impl App {
             user_ordering: usr_ord,
             search_state: None,
             seq_search_state: None,
+            search_registry: SearchRegistry::new(),
             current_msg: cur_msg,
         }
     }
@@ -354,40 +382,8 @@ impl App {
             self.seq_search_state = None;
             return;
         }
-        let try_re = Regex::new(pattern);
-        match try_re {
-            Ok(re) => {
-                let mut spans_by_seq: Vec<Vec<(usize, usize)>> =
-                    Vec::with_capacity(self.alignment.num_seq());
-                let mut total_matches = 0;
-                let mut sequences_with_matches = 0;
-                for seq in &self.alignment.sequences {
-                    let (ungapped, map) = ungapped_seq_and_map(seq);
-                    let mut spans: Vec<(usize, usize)> = Vec::new();
-                    for m in re.find_iter(&ungapped) {
-                        if m.start() == m.end() {
-                            continue;
-                        }
-                        if m.end() == 0 || m.end() > map.len() {
-                            continue;
-                        }
-                        let g_start = map[m.start()];
-                        let g_end = map[m.end() - 1] + 1;
-                        spans.push((g_start, g_end));
-                    }
-                    if !spans.is_empty() {
-                        sequences_with_matches += 1;
-                        total_matches += spans.len();
-                    }
-                    spans_by_seq.push(spans);
-                }
-                self.seq_search_state = Some(SeqSearchState {
-                    pattern: pattern.to_string(),
-                    spans_by_seq,
-                    total_matches,
-                    sequences_with_matches,
-                });
-            }
+        match compute_seq_search_state(&self.alignment.sequences, pattern) {
+            Ok(state) => self.seq_search_state = Some(state),
             Err(e) => {
                 self.error_msg(format!("Malformed regex {}.", e));
                 self.seq_search_state = None;
@@ -401,10 +397,39 @@ impl App {
             .map(|state| state.spans_by_seq.as_slice())
     }
 
+    pub fn current_seq_search_pattern(&self) -> Option<&str> {
+        self.seq_search_state
+            .as_ref()
+            .map(|state| state.pattern.as_str())
+    }
+
     pub fn seq_search_counts(&self) -> Option<(usize, usize)> {
         self.seq_search_state
             .as_ref()
             .map(|state| (state.total_matches, state.sequences_with_matches))
+    }
+
+    pub fn add_saved_search(&mut self, name: String, query: String) -> Result<(), String> {
+        if query.is_empty() {
+            return Err(String::from("Empty search query"));
+        }
+        let state = compute_seq_search_state(&self.alignment.sequences, &query)
+            .map_err(|e| format!("Malformed regex {}.", e))?;
+        self.search_registry
+            .add_search(name, query, state.spans_by_seq);
+        Ok(())
+    }
+
+    pub fn delete_saved_search(&mut self, index: usize) -> bool {
+        self.search_registry.delete(index)
+    }
+
+    pub fn toggle_saved_search(&mut self, index: usize) -> bool {
+        self.search_registry.toggle(index)
+    }
+
+    pub fn saved_searches(&self) -> &[SearchEntry] {
+        self.search_registry.entries()
     }
 
     // Messages
@@ -502,6 +527,89 @@ fn ungapped_seq_and_map(seq: &str) -> (String, Vec<usize>) {
 
 fn is_gap(c: char) -> bool {
     matches!(c, '-' | '.' | ' ')
+}
+
+impl SearchRegistry {
+    fn new() -> Self {
+        Self {
+            searches: Vec::new(),
+            next_color_index: 0,
+        }
+    }
+
+    fn entries(&self) -> &[SearchEntry] {
+        &self.searches
+    }
+
+    fn add_search(&mut self, name: String, query: String, spans_by_seq: Vec<Vec<(usize, usize)>>) {
+        let color = SEARCH_COLORS[self.next_color_index % SEARCH_COLORS.len()];
+        self.next_color_index += 1;
+        let id = self.searches.len() + 1;
+        self.searches.push(SearchEntry {
+            id,
+            name,
+            query,
+            enabled: true,
+            color,
+            spans_by_seq,
+        });
+    }
+
+    fn delete(&mut self, index: usize) -> bool {
+        if index >= self.searches.len() {
+            return false;
+        }
+        self.searches.remove(index);
+        for (idx, entry) in self.searches.iter_mut().enumerate() {
+            entry.id = idx + 1;
+        }
+        true
+    }
+
+    fn toggle(&mut self, index: usize) -> bool {
+        if let Some(entry) = self.searches.get_mut(index) {
+            entry.enabled = !entry.enabled;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+fn compute_seq_search_state(
+    sequences: &[String],
+    pattern: &str,
+) -> Result<SeqSearchState, regex::Error> {
+    let re = Regex::new(pattern)?;
+    let mut spans_by_seq: Vec<Vec<(usize, usize)>> = Vec::with_capacity(sequences.len());
+    let mut total_matches = 0;
+    let mut sequences_with_matches = 0;
+    for seq in sequences {
+        let (ungapped, map) = ungapped_seq_and_map(seq);
+        let mut spans: Vec<(usize, usize)> = Vec::new();
+        for m in re.find_iter(&ungapped) {
+            if m.start() == m.end() {
+                continue;
+            }
+            if m.end() == 0 || m.end() > map.len() {
+                continue;
+            }
+            let g_start = map[m.start()];
+            let g_end = map[m.end() - 1] + 1;
+            spans.push((g_start, g_end));
+        }
+        if !spans.is_empty() {
+            sequences_with_matches += 1;
+            total_matches += spans.len();
+        }
+        spans_by_seq.push(spans);
+    }
+    Ok(SeqSearchState {
+        pattern: pattern.to_string(),
+        spans_by_seq,
+        total_matches,
+        sequences_with_matches,
+    })
 }
 
 #[cfg(test)]
@@ -669,5 +777,22 @@ mod tests {
         assert_eq!(spans[0], vec![(2, 6)]);
         let counts = app.seq_search_counts().unwrap();
         assert_eq!(counts, (1, 1));
+    }
+
+    #[test]
+    fn test_search_registry_add_toggle_delete() {
+        let hdrs = vec![String::from("R1")];
+        let seqs = vec![String::from("ACGT")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.regex_search_sequences("CG");
+        let query = app.current_seq_search_pattern().unwrap().to_string();
+        app.add_saved_search(query.clone(), query).unwrap();
+        assert_eq!(app.saved_searches().len(), 1);
+        assert!(app.saved_searches()[0].enabled);
+        assert!(app.toggle_saved_search(0));
+        assert!(!app.saved_searches()[0].enabled);
+        assert!(app.delete_saved_search(0));
+        assert!(app.saved_searches().is_empty());
     }
 }

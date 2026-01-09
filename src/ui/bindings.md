@@ -28,6 +28,12 @@ z,Z: next/previous zoom mode
 [count]n,p   : next / previous match
 Esc          : cancel search
 
+## Searching (sequences)
+
+/regexp<Ret> : search sequences
+Esc          : cancel search
+:s<Ret>      : open Search List panel (a=add, d=delete, space=toggle, 1-9=select)
+
 ## Adjusting the Panes
 
 [count]<,> : widen/narrow left pane by count columns
@@ -41,7 +47,7 @@ s,S: next/previous color scheme
 m,M: next/previous color map
 i: toggle inverse/direct video
 
-Try dark/inverse for best results (this is the default).
+Monochrome direct video is the default.
 
 ## Metrics and Orderings
 

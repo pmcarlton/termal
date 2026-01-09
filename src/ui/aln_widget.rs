@@ -3,11 +3,16 @@
 
 use ratatui::{
     prelude::{Buffer, Position, Rect},
-    style::{Modifier, Style},
+    style::{Color, Style},
     widgets::Widget,
 };
 
 use crate::ui::zoombox::draw_zoombox_border;
+
+pub struct SearchHighlight<'a> {
+    pub spans_by_seq: &'a [Vec<(usize, usize)>],
+    pub color: Color,
+}
 
 pub struct SeqPane<'a> {
     pub sequences: &'a [String],
@@ -15,7 +20,7 @@ pub struct SeqPane<'a> {
     pub top_i: usize,
     pub left_j: usize,
     pub style_lut: &'a [Style],
-    pub match_spans: Option<&'a [Vec<(usize, usize)>]>,
+    pub highlights: &'a [SearchHighlight<'a>],
     // TODO: not sure this is required - if not, also remove from other SeqPane* structs
     pub base_style: Style, // optional, for clearing/background
 }
@@ -42,7 +47,7 @@ impl<'a> Widget for SeqPane<'a> {
             }
             let seq_index = self.ordering[i];
             let seq = self.sequences[seq_index].as_bytes();
-            let spans = self.match_spans.and_then(|all| all.get(seq_index));
+            let highlight_color = |col: usize| highlight_color(&self.highlights, seq_index, col);
 
             for c in 0..cols {
                 let j = self.left_j + c;
@@ -51,11 +56,8 @@ impl<'a> Widget for SeqPane<'a> {
                 }
                 let b = seq[j];
                 let mut style = self.style_lut[b as usize];
-                if spans
-                    .map(|seq_spans| in_spans(seq_spans, j))
-                    .unwrap_or(false)
-                {
-                    style = style.add_modifier(Modifier::REVERSED);
+                if let Some(color) = highlight_color(j) {
+                    style = style.bg(color);
                 }
 
                 buf.cell_mut(Position::from((area.x + c as u16, area.y + r as u16)))
@@ -73,7 +75,7 @@ pub struct SeqPaneZoomedOut<'a> {
     pub retained_rows: &'a [usize], // indices into "logical rows"
     pub retained_cols: &'a [usize], // indices into alignment columns
     pub style_lut: &'a [Style],     // style per byte (0..=255)
-    pub match_spans: Option<&'a [Vec<(usize, usize)>]>,
+    pub highlights: &'a [SearchHighlight<'a>],
     pub base_style: Style, // for clearing/background
     pub show_zoombox: bool,
     pub zb_top: usize,
@@ -111,7 +113,7 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
 
             let seq_index = self.ordering[i];
             let seq_bytes = self.sequences[seq_index].as_bytes();
-            let spans = self.match_spans.and_then(|all| all.get(seq_index));
+            let highlight_color = |col: usize| highlight_color(&self.highlights, seq_index, col);
 
             for c in 0..max_c {
                 let j = self.retained_cols[c];
@@ -122,11 +124,8 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
 
                 let b = seq_bytes[j];
                 let mut style = self.style_lut[b as usize];
-                if spans
-                    .map(|seq_spans| in_spans(seq_spans, j))
-                    .unwrap_or(false)
-                {
-                    style = style.add_modifier(Modifier::REVERSED);
+                if let Some(color) = highlight_color(j) {
+                    style = style.bg(color);
                 }
 
                 buf.cell_mut(Position::from((area.x + c as u16, area.y + r as u16)))
@@ -152,4 +151,17 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
 
 fn in_spans(spans: &[(usize, usize)], col: usize) -> bool {
     spans.iter().any(|(start, end)| *start <= col && col < *end)
+}
+
+fn highlight_color(
+    highlights: &[SearchHighlight<'_>],
+    seq_index: usize,
+    col: usize,
+) -> Option<Color> {
+    highlights.iter().find_map(|highlight| {
+        highlight
+            .spans_by_seq
+            .get(seq_index)
+            .and_then(|spans| in_spans(spans, col).then_some(highlight.color))
+    })
 }

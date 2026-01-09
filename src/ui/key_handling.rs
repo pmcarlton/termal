@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::{
     line_editor::LineEditor,
     InputMode,
-    InputMode::{Help, LabelSearch, Normal, PendingCount, Search},
+    InputMode::{Command, Help, LabelSearch, Normal, PendingCount, Search, SearchList},
     //SearchDirection,
     {ZoomLevel, UI},
 };
@@ -20,6 +20,8 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         PendingCount { count } => done = handle_pending_count_key(ui, key_event, count),
         LabelSearch { pattern } => handle_label_search(ui, key_event, &pattern),
         Search { editor } => handle_search(ui, key_event, editor),
+        Command { editor } => handle_command(ui, key_event, editor),
+        SearchList { selected } => handle_search_list(ui, key_event, selected),
     };
     done
 }
@@ -49,6 +51,12 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
             };
             ui.app
                 .argument_msg(String::from("Label search: "), String::from(""));
+        }
+        KeyCode::Char(':') => {
+            ui.input_mode = InputMode::Command {
+                editor: LineEditor::new(),
+            };
+            ui.app.argument_msg(String::from(":"), String::from(""));
         }
         KeyCode::Char('/') => {
             ui.input_mode = InputMode::Search {
@@ -168,6 +176,107 @@ fn handle_search(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
         KeyCode::End => {
             editor.move_end();
             ui.input_mode = InputMode::Search { editor };
+        }
+        _ => {}
+    }
+}
+
+fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+        }
+        KeyCode::Enter => {
+            let cmd = editor.text();
+            ui.input_mode = InputMode::Normal;
+            if cmd.trim() == "s" {
+                let selected = if ui.app.saved_searches().is_empty() {
+                    0
+                } else {
+                    0
+                };
+                ui.input_mode = InputMode::SearchList { selected };
+            } else {
+                ui.app.warning_msg(format!("Unknown command: {}", cmd));
+            }
+        }
+        KeyCode::Char(c) if c.is_ascii_graphic() || c == ' ' => {
+            editor.insert_char(c);
+            ui.input_mode = InputMode::Command { editor };
+            ui.app.argument_msg(String::from(":"), ui.command_text());
+        }
+        KeyCode::Backspace => {
+            editor.backspace();
+            ui.input_mode = InputMode::Command { editor };
+            ui.app.argument_msg(String::from(":"), ui.command_text());
+        }
+        KeyCode::Left => {
+            editor.move_left();
+            ui.input_mode = InputMode::Command { editor };
+        }
+        KeyCode::Right => {
+            editor.move_right();
+            ui.input_mode = InputMode::Command { editor };
+        }
+        KeyCode::Home => {
+            editor.move_home();
+            ui.input_mode = InputMode::Command { editor };
+        }
+        KeyCode::End => {
+            editor.move_end();
+            ui.input_mode = InputMode::Command { editor };
+        }
+        _ => {}
+    }
+}
+
+fn handle_search_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+        }
+        KeyCode::Char('a') => {
+            if let Some(query) = ui.app.current_seq_search_pattern() {
+                let name = query.to_string();
+                match ui.app.add_saved_search(name, query.to_string()) {
+                    Ok(_) => {
+                        let last = ui.app.saved_searches().len().saturating_sub(1);
+                        ui.input_mode = InputMode::SearchList { selected: last };
+                        ui.app.info_msg("Added saved search");
+                    }
+                    Err(e) => ui.app.error_msg(e),
+                }
+            } else {
+                ui.app.warning_msg("No current query to save");
+            }
+        }
+        KeyCode::Char('d') => {
+            if ui.app.delete_saved_search(selected) {
+                let len = ui.app.saved_searches().len();
+                let new_selected = if len == 0 {
+                    0
+                } else if selected >= len {
+                    len - 1
+                } else {
+                    selected
+                };
+                ui.input_mode = InputMode::SearchList {
+                    selected: new_selected,
+                };
+            }
+        }
+        KeyCode::Char(' ') => {
+            if ui.app.toggle_saved_search(selected) {
+                ui.input_mode = InputMode::SearchList { selected };
+            }
+        }
+        KeyCode::Char(c) if c.is_ascii_digit() && c != '0' => {
+            let idx = (c as u8 - b'1') as usize;
+            if idx < ui.app.saved_searches().len() {
+                ui.input_mode = InputMode::SearchList { selected: idx };
+            }
         }
         _ => {}
     }
@@ -387,7 +496,12 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // ----- Editing -----
         // Filter alignment through external command (à la Vim's '!')
         KeyCode::Char('!') => ui.app.warning_msg("Filtering not implemented yet"),
-        KeyCode::Char(':') => ui.app.warning_msg("Ex mode not implemented yet"),
+        KeyCode::Char(':') => {
+            ui.input_mode = InputMode::Command {
+                editor: LineEditor::new(),
+            };
+            ui.app.argument_msg(String::from(":"), String::from(""));
+        }
 
         _ => {
             // let the user know this key is not bound

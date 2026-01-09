@@ -22,6 +22,7 @@ use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 
 use self::{
+    aln_widget::SearchHighlight,
     color_map::colormap_gecos,
     color_scheme::{ColorScheme, Theme},
     line_editor::LineEditor,
@@ -32,6 +33,7 @@ use crate::app::App;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 const MIN_COLS_SHOWN: u16 = 1;
 const BORDER_WIDTH: u16 = 1;
+const CURRENT_SEARCH_COLOR: (u8, u8, u8) = (220, 220, 220);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ZoomLevel {
@@ -56,16 +58,11 @@ enum VideoMode {
 enum InputMode {
     Normal,
     Help,
-    PendingCount {
-        count: usize,
-    },
-    LabelSearch {
-        pattern: String,
-    },
-    #[allow(dead_code)]
-    Search {
-        editor: LineEditor,
-    },
+    PendingCount { count: usize },
+    LabelSearch { pattern: String },
+    Search { editor: LineEditor },
+    Command { editor: LineEditor },
+    SearchList { selected: usize },
     // ExCommand { buffer: String },
 }
 
@@ -139,14 +136,16 @@ impl<'a> UI<'a> {
     pub fn new(app: &'a mut App) -> Self {
         let macromolecule_type = app.alignment.macromolecule_type();
         app.info_msg("Press '?' for help");
+        let color_schemes = vec![
+            ColorScheme::color_scheme_dark(macromolecule_type),
+            ColorScheme::color_scheme_light(macromolecule_type),
+            ColorScheme::color_scheme_monochrome(),
+        ];
+        let default_color_scheme_index = color_schemes.len() - 1;
         UI {
             app,
-            color_schemes: vec![
-                ColorScheme::color_scheme_dark(macromolecule_type),
-                ColorScheme::color_scheme_light(macromolecule_type),
-                ColorScheme::color_scheme_monochrome(),
-            ],
-            current_color_scheme_index: 0,
+            color_schemes,
+            current_color_scheme_index: default_color_scheme_index,
             zoom_level: ZoomLevel::ZoomedIn,
             show_zoombox: true,
             show_zb_guides: true,
@@ -162,7 +161,7 @@ impl<'a> UI<'a> {
             aln_pane_size: None,
             frame_size: None,
             full_screen: false,
-            video_mode: VideoMode::Inverse,
+            video_mode: VideoMode::Direct,
             input_mode: InputMode::Normal,
         }
     }
@@ -527,6 +526,44 @@ impl<'a> UI<'a> {
         match &self.input_mode {
             InputMode::Search { editor } => editor.text(),
             _ => String::new(),
+        }
+    }
+
+    pub fn command_text(&self) -> String {
+        match &self.input_mode {
+            InputMode::Command { editor } => editor.text(),
+            _ => String::new(),
+        }
+    }
+
+    pub fn search_highlights(&self) -> Vec<SearchHighlight<'_>> {
+        let mut highlights: Vec<SearchHighlight> = Vec::new();
+        if let Some(spans) = self.app.seq_search_spans() {
+            highlights.push(SearchHighlight {
+                spans_by_seq: spans,
+                color: Color::Rgb(
+                    CURRENT_SEARCH_COLOR.0,
+                    CURRENT_SEARCH_COLOR.1,
+                    CURRENT_SEARCH_COLOR.2,
+                ),
+            });
+        }
+        for entry in self.app.saved_searches() {
+            if !entry.enabled {
+                continue;
+            }
+            highlights.push(SearchHighlight {
+                spans_by_seq: &entry.spans_by_seq,
+                color: Color::Rgb(entry.color.0, entry.color.1, entry.color.2),
+            });
+        }
+        highlights
+    }
+
+    pub fn search_list_selected(&self) -> Option<usize> {
+        match self.input_mode {
+            InputMode::SearchList { selected } => Some(selected),
+            _ => None,
         }
     }
 

@@ -397,7 +397,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
     f.render_widget(aln_block, aln_chunk);
 
     let style_lut = build_style_lut(&ui);
-    let match_spans = ui.app.seq_search_spans();
+    let highlights = ui.search_highlights();
 
     match ui.zoom_level {
         ZoomLevel::ZoomedIn => {
@@ -407,7 +407,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
                 top_i: ui.top_line as usize,
                 left_j: ui.leftmost_col as usize,
                 style_lut: &style_lut,
-                match_spans,
+                highlights: &highlights,
                 base_style: Style::default(),
             };
             f.render_widget(pane, inner_aln_block);
@@ -420,7 +420,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
                 retained_rows: &retained_seq_ndx(ui),
                 retained_cols: &retained_col_ndx(ui),
                 style_lut: &style_lut,
-                match_spans,
+                highlights: &highlights,
                 base_style: Style::default(),
                 show_zoombox: ui.show_zoombox,
                 zb_top: ui.zoombox_top(),
@@ -625,6 +625,38 @@ fn render_help_dialog(f: &mut Frame, dialog_chunk: Rect) {
     f.render_widget(dialog_para, dialog_chunk);
 }
 
+fn render_search_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
+    let dialog_block = Block::default().borders(Borders::ALL).title("Search List");
+    let entries = ui.app.saved_searches();
+    let selected = ui.search_list_selected().unwrap_or(0);
+
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from("ID On Name Query"));
+    if entries.is_empty() {
+        lines.push(Line::from("No saved searches."));
+    } else {
+        for (idx, entry) in entries.iter().enumerate() {
+            let on = if entry.enabled { "*" } else { " " };
+            let line = format!(
+                "{:>2}  {}  {:<12} {}",
+                entry.id, on, entry.name, entry.query
+            );
+            let style = if idx == selected {
+                Style::default().add_modifier(Modifier::REVERSED)
+            } else {
+                Style::default()
+            };
+            lines.push(Line::styled(line, style));
+        }
+    }
+
+    let dialog_para = Paragraph::new(Text::from(lines))
+        .block(dialog_block)
+        .style(Style::default());
+    f.render_widget(Clear, dialog_chunk);
+    f.render_widget(dialog_para, dialog_chunk);
+}
+
 pub fn render_ui(f: &mut Frame, ui: &mut UI) {
     let layout_panes = make_layout(f, ui);
 
@@ -675,6 +707,10 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
         render_help_dialog(f, layout_panes.dialog);
         // after the first display of the help dialog, remove the message
         ui.app.clear_msg();
+    }
+
+    if let InputMode::SearchList { .. } = ui.input_mode {
+        render_search_list_dialog(f, layout_panes.dialog, ui);
     }
 }
 
