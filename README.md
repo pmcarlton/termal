@@ -10,6 +10,14 @@ for fast, keyboard-driven navigation in local and remote (SSH/HPC) environments.
 It requires no installer, has no runtime dependencies, and runs directly in a
 terminal.
 
+## Terminal colors and themes
+
+Termal relies on standard ANSI colors. If your terminal theme remaps ANSI black
+to a non-black color, dark backgrounds may appear tinted. For best results,
+use a theme where ANSI black is pure black and the default background is also
+black. If colors look off, try a different theme or adjust your terminal
+palette.
+
 ---
 
 ## Installation
