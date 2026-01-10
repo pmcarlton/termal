@@ -1,28 +1,32 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 Thomas Junier
 
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, fs};
 
+use hex_color::HexColor;
 use regex::Regex;
+use serde_json::Value;
 
 use crate::{
     alignment::Alignment,
     app::Metric::{PctIdWrtConsensus, SeqLen},
     app::SeqOrdering::{MetricDecr, MetricIncr, SourceFile, User},
+    errors::TermalError,
 };
 
 type SearchColor = (u8, u8, u8);
 
-const SEARCH_COLORS: [SearchColor; 8] = [
-    (255, 105, 97),
-    (119, 221, 119),
-    (135, 206, 235),
-    (255, 179, 71),
-    (255, 105, 180),
-    (176, 196, 222),
-    (255, 218, 185),
-    (152, 251, 152),
+const DEFAULT_SEARCH_PALETTE: [SearchColor; 6] = [
+    (100, 0, 0),
+    (0, 100, 0),
+    (0, 0, 100),
+    (100, 100, 0),
+    (0, 100, 100),
+    (100, 0, 100),
 ];
+const DEFAULT_CURRENT_SEARCH_COLOR: SearchColor = (80, 80, 80);
+const DEFAULT_MIN_COMPONENT: u8 = 100;
+const DEFAULT_GAP_DIM_FACTOR: f32 = 0.5;
 #[derive(Clone, Copy)]
 pub enum SeqOrdering {
     SourceFile,
@@ -82,6 +86,65 @@ pub struct SeqSearchState {
     pub sequences_with_matches: usize,
 }
 
+pub struct SearchColorConfig {
+    pub palette: Vec<SearchColor>,
+    pub current_search: SearchColor,
+    pub min_component: u8,
+    pub gap_dim_factor: f32,
+}
+
+impl SearchColorConfig {
+    pub fn from_file(path: &str) -> Result<Self, TermalError> {
+        let contents = fs::read_to_string(path)?;
+        let value: Value =
+            serde_json::from_str(&contents).map_err(|e| format!("Invalid JSON: {}", e))?;
+        let palette = value
+            .get("palette")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|item| parse_color_value(item).ok())
+                    .collect::<Vec<SearchColor>>()
+            })
+            .unwrap_or_else(|| DEFAULT_SEARCH_PALETTE.to_vec());
+        let current_search = value
+            .get("current_search")
+            .and_then(|v| parse_color_value(v).ok())
+            .unwrap_or(DEFAULT_CURRENT_SEARCH_COLOR);
+        let min_component = value
+            .get("min_component")
+            .and_then(|v| v.as_u64())
+            .map(|v| v.min(u8::MAX as u64) as u8)
+            .unwrap_or(DEFAULT_MIN_COMPONENT);
+        let gap_dim_factor = value
+            .get("gap_dim_factor")
+            .and_then(|v| v.as_f64())
+            .map(|v| v.clamp(0.0, 1.0) as f32)
+            .unwrap_or(DEFAULT_GAP_DIM_FACTOR);
+        Ok(Self {
+            palette: if palette.is_empty() {
+                DEFAULT_SEARCH_PALETTE.to_vec()
+            } else {
+                palette
+            },
+            current_search,
+            min_component,
+            gap_dim_factor,
+        })
+    }
+}
+
+impl Default for SearchColorConfig {
+    fn default() -> Self {
+        Self {
+            palette: DEFAULT_SEARCH_PALETTE.to_vec(),
+            current_search: DEFAULT_CURRENT_SEARCH_COLOR,
+            min_component: DEFAULT_MIN_COMPONENT,
+            gap_dim_factor: DEFAULT_GAP_DIM_FACTOR,
+        }
+    }
+}
+
 pub struct SearchEntry {
     pub id: usize,
     pub name: String,
@@ -93,6 +156,7 @@ pub struct SearchEntry {
 
 pub struct SearchRegistry {
     searches: Vec<SearchEntry>,
+    palette: Vec<SearchColor>,
     next_color_index: usize,
 }
 
@@ -128,6 +192,7 @@ pub struct App {
     pub search_state: Option<SearchState>,
     seq_search_state: Option<SeqSearchState>,
     search_registry: SearchRegistry,
+    search_color_config: SearchColorConfig,
     current_msg: CurrentMessage,
 }
 
@@ -139,6 +204,7 @@ impl App {
             message: String::from(""),
             kind: MessageKind::Info,
         };
+        let search_color_config = SearchColorConfig::default();
         App {
             filename: path.to_string(),
             alignment,
@@ -149,7 +215,8 @@ impl App {
             user_ordering: usr_ord,
             search_state: None,
             seq_search_state: None,
-            search_registry: SearchRegistry::new(),
+            search_registry: SearchRegistry::new(search_color_config.palette.clone()),
+            search_color_config,
             current_msg: cur_msg,
         }
     }
@@ -409,6 +476,15 @@ impl App {
             .map(|state| (state.total_matches, state.sequences_with_matches))
     }
 
+    pub fn search_color_config(&self) -> &SearchColorConfig {
+        &self.search_color_config
+    }
+
+    pub fn set_search_color_config(&mut self, config: SearchColorConfig) {
+        self.search_registry.set_palette(config.palette.clone());
+        self.search_color_config = config;
+    }
+
     pub fn add_saved_search(&mut self, name: String, query: String) -> Result<(), String> {
         if query.is_empty() {
             return Err(String::from("Empty search query"));
@@ -530,9 +606,10 @@ fn is_gap(c: char) -> bool {
 }
 
 impl SearchRegistry {
-    fn new() -> Self {
+    fn new(palette: Vec<SearchColor>) -> Self {
         Self {
             searches: Vec::new(),
+            palette,
             next_color_index: 0,
         }
     }
@@ -542,7 +619,7 @@ impl SearchRegistry {
     }
 
     fn add_search(&mut self, name: String, query: String, spans_by_seq: Vec<Vec<(usize, usize)>>) {
-        let color = SEARCH_COLORS[self.next_color_index % SEARCH_COLORS.len()];
+        let color = self.palette[self.next_color_index % self.palette.len()];
         self.next_color_index += 1;
         let id = self.searches.len() + 1;
         self.searches.push(SearchEntry {
@@ -573,6 +650,14 @@ impl SearchRegistry {
         } else {
             false
         }
+    }
+
+    fn set_palette(&mut self, palette: Vec<SearchColor>) {
+        self.palette = palette;
+        if self.palette.is_empty() {
+            self.palette = DEFAULT_SEARCH_PALETTE.to_vec();
+        }
+        self.next_color_index %= self.palette.len();
     }
 }
 
@@ -610,6 +695,22 @@ fn compute_seq_search_state(
         total_matches,
         sequences_with_matches,
     })
+}
+
+fn parse_color_value(value: &Value) -> Result<SearchColor, TermalError> {
+    match value {
+        Value::String(s) => {
+            let hex = HexColor::parse_rgb(s).map_err(|e| format!("Bad color {}: {}", s, e))?;
+            Ok((hex.r, hex.g, hex.b))
+        }
+        Value::Array(items) if items.len() == 3 => {
+            let r = items[0].as_u64().unwrap_or(0).min(255) as u8;
+            let g = items[1].as_u64().unwrap_or(0).min(255) as u8;
+            let b = items[2].as_u64().unwrap_or(0).min(255) as u8;
+            Ok((r, g, b))
+        }
+        _ => Err(TermalError::Format("Invalid color value".to_string())),
+    }
 }
 
 #[cfg(test)]

@@ -397,7 +397,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
     f.render_widget(aln_block, aln_chunk);
 
     let style_lut = build_style_lut(&ui);
-    let highlights = ui.search_highlights();
+    let (highlights, highlight_config) = ui.search_highlights();
 
     match ui.zoom_level {
         ZoomLevel::ZoomedIn => {
@@ -408,6 +408,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
                 left_j: ui.leftmost_col as usize,
                 style_lut: &style_lut,
                 highlights: &highlights,
+                highlight_config,
                 base_style: Style::default(),
             };
             f.render_widget(pane, inner_aln_block);
@@ -421,6 +422,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
                 retained_cols: &retained_col_ndx(ui),
                 style_lut: &style_lut,
                 highlights: &highlights,
+                highlight_config,
                 base_style: Style::default(),
                 show_zoombox: ui.show_zoombox,
                 zb_top: ui.zoombox_top(),
@@ -586,8 +588,24 @@ fn render_bottom_pane(f: &mut Frame, bottom_chunk: Rect, ui: &UI) {
 }
 
 fn render_modeline(f: &mut Frame, last_content_line: u16, ui: &mut UI) {
-    // Do not write anything if BOTH prefix and msg are ""
-    if ui.app.current_message().prefix.is_empty() && ui.app.current_message().message.is_empty() {
+    let base_msg = if ui.app.current_message().prefix.is_empty()
+        && ui.app.current_message().message.is_empty()
+    {
+        String::new()
+    } else {
+        format!(
+            "{}{}",
+            &*ui.app.current_message().prefix,
+            &*ui.app.current_message().message
+        )
+    };
+    let search_msg = ui.search_status_line();
+    let combined = if base_msg.is_empty() {
+        search_msg
+    } else {
+        format!("{} | {}", base_msg, search_msg)
+    };
+    if combined.is_empty() {
         return;
     }
 
@@ -599,14 +617,7 @@ fn render_modeline(f: &mut Frame, last_content_line: u16, ui: &mut UI) {
     };
     // without '└ ', the modeline would start in the very bottom left.
     let corner_span = Span::raw(" ");
-    let message_span = Span::styled(
-        format!(
-            "{}{}",
-            &*ui.app.current_message().prefix,
-            &*ui.app.current_message().message
-        ),
-        style_for(&ui.app.current_message().kind),
-    );
+    let message_span = Span::styled(combined, style_for(&ui.app.current_message().kind));
     let spacer_span = Span::raw(" ");
     let modeline = Line::from(vec![corner_span, message_span, spacer_span]);
     f.render_widget(modeline, modeline_rect);

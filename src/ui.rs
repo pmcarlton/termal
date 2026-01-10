@@ -22,7 +22,7 @@ use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 
 use self::{
-    aln_widget::SearchHighlight,
+    aln_widget::{SearchHighlight, SearchHighlightConfig},
     color_map::colormap_gecos,
     color_scheme::{ColorScheme, Theme},
     line_editor::LineEditor,
@@ -33,7 +33,6 @@ use crate::app::App;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 const MIN_COLS_SHOWN: u16 = 1;
 const BORDER_WIDTH: u16 = 1;
-const CURRENT_SEARCH_COLOR: (u8, u8, u8) = (220, 220, 220);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ZoomLevel {
@@ -536,15 +535,16 @@ impl<'a> UI<'a> {
         }
     }
 
-    pub fn search_highlights(&self) -> Vec<SearchHighlight<'_>> {
+    pub fn search_highlights(&self) -> (Vec<SearchHighlight<'_>>, SearchHighlightConfig) {
         let mut highlights: Vec<SearchHighlight> = Vec::new();
+        let config = self.app.search_color_config();
         if let Some(spans) = self.app.seq_search_spans() {
             highlights.push(SearchHighlight {
                 spans_by_seq: spans,
                 color: Color::Rgb(
-                    CURRENT_SEARCH_COLOR.0,
-                    CURRENT_SEARCH_COLOR.1,
-                    CURRENT_SEARCH_COLOR.2,
+                    config.current_search.0,
+                    config.current_search.1,
+                    config.current_search.2,
                 ),
             });
         }
@@ -557,7 +557,13 @@ impl<'a> UI<'a> {
                 color: Color::Rgb(entry.color.0, entry.color.1, entry.color.2),
             });
         }
-        highlights
+        (
+            highlights,
+            SearchHighlightConfig {
+                min_component: config.min_component,
+                gap_dim_factor: config.gap_dim_factor,
+            },
+        )
     }
 
     pub fn search_list_selected(&self) -> Option<usize> {
@@ -565,6 +571,30 @@ impl<'a> UI<'a> {
             InputMode::SearchList { selected } => Some(selected),
             _ => None,
         }
+    }
+
+    pub fn search_status_line(&self) -> String {
+        let enabled: Vec<String> = self
+            .app
+            .saved_searches()
+            .iter()
+            .filter(|entry| entry.enabled)
+            .map(|entry| format!("{}:{}", entry.id, entry.name))
+            .collect();
+        let saved = if enabled.is_empty() {
+            String::from("-")
+        } else {
+            enabled.join(",")
+        };
+        let current = match &self.input_mode {
+            InputMode::Search { editor } => editor.text(),
+            _ => self
+                .app
+                .current_seq_search_pattern()
+                .unwrap_or("-")
+                .to_string(),
+        };
+        format!("Saved: {} | Current: {}", saved, current)
     }
 
     pub fn toggle_video_mode(&mut self) {
