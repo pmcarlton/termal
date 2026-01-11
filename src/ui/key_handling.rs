@@ -501,9 +501,6 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
             ui.app
                 .argument_msg(String::from("Search: "), String::from(""));
         }
-        KeyCode::Char('?') => ui.app.warning_msg("Search not implemented yet"),
-        KeyCode::Char(']') => ui.app.warning_msg("Search not implemented yet"),
-        KeyCode::Char('[') => ui.app.warning_msg("Search not implemented yet"),
         KeyCode::Char('P') => {
             if let Some(query) = ui.app.current_seq_search_pattern() {
                 match ui
@@ -523,7 +520,32 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
 
         // ----- Editing -----
         // Filter alignment through external command (à la Vim's '!')
-        KeyCode::Char('!') => ui.app.warning_msg("Filtering not implemented yet"),
+        KeyCode::Char('!') => {
+            if let Some(rank) = ui.app.current_label_match_rank() {
+                let out_path = ui.app.rejected_path();
+                if let Some((header, seq)) = ui.app.remove_sequence(rank) {
+                    if let Err(e) = ui.app.append_sequence_fasta(&out_path, &header, &seq) {
+                        ui.app.error_msg(format!("Write failed: {}", e));
+                    } else {
+                        ui.app
+                            .info_msg(format!("Rejected -> {}", out_path.display()));
+                    }
+                } else {
+                    ui.app.warning_msg("No current label match");
+                }
+            } else {
+                ui.app.warning_msg("No current label match");
+            }
+        }
+        KeyCode::Char('W') => {
+            let out_path = ui.app.filtered_path();
+            match ui.app.write_alignment_fasta(&out_path) {
+                Ok(_) => ui
+                    .app
+                    .info_msg(format!("Filtered -> {}", out_path.display())),
+                Err(e) => ui.app.error_msg(format!("Write failed: {}", e)),
+            }
+        }
         KeyCode::Char(':') => {
             ui.input_mode = InputMode::Command {
                 editor: LineEditor::new(),

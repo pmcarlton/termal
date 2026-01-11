@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 Thomas Junier
 
-use std::{collections::HashMap, fmt, fs};
+use std::{
+    collections::HashMap,
+    fmt, fs,
+    io::{BufWriter, Write},
+    path::{Path, PathBuf},
+};
 
 use hex_color::HexColor;
 use regex::Regex;
@@ -448,6 +453,18 @@ impl App {
         }
     }
 
+    pub fn current_label_match_rank(&self) -> Option<usize> {
+        self.search_state
+            .as_ref()
+            .and_then(|state| state.match_linenums.get(state.current).copied())
+    }
+
+    pub fn is_current_label_match(&self, rank: usize) -> bool {
+        self.current_label_match_rank()
+            .map(|current| current == rank)
+            .unwrap_or(false)
+    }
+
     // Returns true IFF there is a search result AND header of rank `rank` (i.e., without
     // correction for order) is a match.
     pub fn is_label_search_match(&self, rank: usize) -> bool {
@@ -554,6 +571,62 @@ impl App {
 
     pub fn saved_searches(&self) -> &[SearchEntry] {
         self.search_registry.entries()
+    }
+
+    pub fn remove_sequence(&mut self, rank: usize) -> Option<(String, String)> {
+        let removed = self.alignment.remove_seq(rank)?;
+        self.search_state = None;
+        self.seq_search_state = None;
+        self.refresh_saved_searches();
+        self.recompute_ordering();
+        Some(removed)
+    }
+
+    pub fn write_alignment_fasta(&self, path: &Path) -> Result<(), TermalError> {
+        let file = fs::File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        for (header, seq) in self
+            .alignment
+            .headers
+            .iter()
+            .zip(self.alignment.sequences.iter())
+        {
+            writeln!(writer, ">{}", header)?;
+            writeln!(writer, "{}", seq)?;
+        }
+        Ok(())
+    }
+
+    pub fn append_sequence_fasta(
+        &self,
+        path: &Path,
+        header: &str,
+        sequence: &str,
+    ) -> Result<(), TermalError> {
+        let file = fs::File::options().create(true).append(true).open(path)?;
+        let mut writer = BufWriter::new(file);
+        writeln!(writer, ">{}", header)?;
+        writeln!(writer, "{}", sequence)?;
+        Ok(())
+    }
+
+    pub fn filtered_path(&self) -> PathBuf {
+        make_output_path(&self.filename, "filtered")
+    }
+
+    pub fn rejected_path(&self) -> PathBuf {
+        make_output_path(&self.filename, "rejected")
+    }
+
+    fn refresh_saved_searches(&mut self) {
+        let sequences = &self.alignment.sequences;
+        for entry in &mut self.search_registry.searches {
+            if let Ok(state) = compute_seq_search_state(sequences, &entry.query) {
+                entry.spans_by_seq = state.spans_by_seq;
+            } else {
+                entry.spans_by_seq = vec![Vec::new(); sequences.len()];
+            }
+        }
     }
 
     // Messages
@@ -770,6 +843,19 @@ fn parse_color_value(value: &Value) -> Result<SearchColor, TermalError> {
             Ok((r, g, b))
         }
         _ => Err(TermalError::Format("Invalid color value".to_string())),
+    }
+}
+
+fn make_output_path(original: &str, prefix: &str) -> PathBuf {
+    let path = Path::new(original);
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(original);
+    let new_name = format!("{}{}", prefix, file_name);
+    match path.parent() {
+        Some(parent) => parent.join(new_name),
+        None => PathBuf::from(new_name),
     }
 }
 

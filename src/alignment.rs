@@ -137,6 +137,38 @@ impl Alignment {
     pub fn macromolecule_type(&self) -> SeqType {
         self.macromolecule_type
     }
+
+    pub fn remove_seq(&mut self, index: usize) -> Option<(String, String)> {
+        if index >= self.sequences.len() {
+            return None;
+        }
+        let header = self.headers.remove(index);
+        let sequence = self.sequences.remove(index);
+        if self.sequences.is_empty() {
+            self.consensus.clear();
+            self.entropies.clear();
+            self.densities.clear();
+            self.id_wrt_consensus.clear();
+            self.relative_seq_len.clear();
+            return Some((header, sequence));
+        }
+
+        self.consensus = consensus(&self.sequences);
+        self.entropies = entropies(&self.sequences);
+        self.densities = densities(&self.sequences);
+        self.id_wrt_consensus = self
+            .sequences
+            .iter()
+            .map(|seq| percent_identity(seq, &self.consensus))
+            .collect();
+        self.relative_seq_len = self
+            .sequences
+            .iter()
+            .map(|seq| seq_len_nogaps(seq))
+            .collect();
+
+        Some((header, sequence))
+    }
 }
 
 // TODO should these be methods of Alignment?
@@ -285,8 +317,8 @@ mod tests {
     use crate::alignment::{
         best_residue, consensus, densities, entropies, entropy, percent_identity, res_count,
         seq_len_nogaps, seq_type, to_freq_distrib, Alignment, BestResidue, ResidueCounts,
-        ResidueDistribution,
-        SeqType, SeqType::{Nucleic, Protein},
+        ResidueDistribution, SeqType,
+        SeqType::{Nucleic, Protein},
     };
     use crate::seq::fasta::read_fasta_file;
     use approx::assert_relative_eq;
@@ -508,20 +540,20 @@ mod tests {
         let _ = Alignment::from_file(fasta);
     }
 
-    // Test the Vec constructor 
+    // Test the Vec constructor
     #[test]
     fn test_vec_ctor_00() {
         let hdrs = vec![
             String::from("Leo"),
             String::from("Tigris"),
             String::from("Pardus"),
-            String::from("Onca")
+            String::from("Onca"),
         ];
         let seqs = vec![
             String::from("catgcatatg"),
             String::from("aatgcatatg"),
             String::from("tatgcatatg"),
-            String::from("gatgcatatg")
+            String::from("gatgcatatg"),
         ];
         let aln = Alignment::from_vecs(hdrs, seqs);
         assert_eq!(4, aln.num_seq());

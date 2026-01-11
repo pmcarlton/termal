@@ -26,6 +26,7 @@ z,Z: next/previous zoom mode
 
 "regexp<Ret> : search sequence headers
 [count]n,p   : next / previous match
+!            : reject current header match (remove from view, append to rejected<file>)
 Esc          : cancel search
 
 ## Searching (sequences)
@@ -34,6 +35,7 @@ Esc          : cancel search
 Esc          : cancel search
 :s<Ret>      : open Search List panel (a=add, d=delete, space=toggle, 1-9=select)
 P            : save current search and clear its highlights
+W            : write currently shown alignment to filtered<file>
 
 ## Adjusting the Panes
 

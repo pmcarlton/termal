@@ -133,6 +133,19 @@ Other
 -----
 
 * Q,q    : quit
+* ?      : help
+
+Searching
+---------
+
+* "regexp<Ret> : search sequence headers
+* n,p          : next / previous header match (current match highlighted in red)
+* !            : reject current header match (remove from view, append to rejected<file>)
+* /regexp<Ret> : search sequences
+* n,p          : next / previous sequence match (current match underlined)
+* P            : save current sequence search and clear its highlights
+* :s<Ret>      : open Search List panel (a=add, d=delete, space=toggle, 1-9=select)
+* W            : write currently shown alignment to filtered<file>
 
 OPTIONS
 =======

@@ -101,7 +101,11 @@ fn zoom_in_lbl_text<'a>(ui: &UI) -> Vec<Line<'a>> {
         .iter()
         .map(|i| {
             let hl_style = if ui.app.is_label_search_match(*i) {
-                Style::default().add_modifier(Modifier::REVERSED)
+                if ui.app.is_current_label_match(*i) {
+                    Style::default().bg(Color::Red).fg(Color::Black)
+                } else {
+                    Style::default().bg(Color::White).fg(Color::Black)
+                }
             } else {
                 Style::default()
             };
@@ -115,13 +119,18 @@ fn zoom_out_lbl_text<'a>(ui: &UI) -> Vec<Line<'a>> {
     let mut ztext: Vec<Line> = Vec::new();
 
     for i in retained_seq_ndx(ui) {
-        let hl_style = if ui.app.is_label_search_match(ui.app.ordering[i]) {
-            Style::default().add_modifier(Modifier::REVERSED)
+        let rank = ui.app.ordering[i];
+        let hl_style = if ui.app.is_label_search_match(rank) {
+            if ui.app.is_current_label_match(rank) {
+                Style::default().bg(Color::Red).fg(Color::Black)
+            } else {
+                Style::default().bg(Color::White).fg(Color::Black)
+            }
         } else {
             Style::default()
         };
         ztext.push(Line::from(Span::styled(
-            ui.app.alignment.headers[ui.app.ordering[i]].clone(),
+            ui.app.alignment.headers[rank].clone(),
             hl_style,
         )));
     }
