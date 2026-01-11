@@ -59,6 +59,12 @@ pub enum Metric {
     SeqLen,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SearchKind {
+    Regex,
+    Emboss,
+}
+
 impl fmt::Display for Metric {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let metric = match self {
@@ -86,6 +92,7 @@ pub struct SearchState {
 }
 
 pub struct SeqSearchState {
+    pub kind: SearchKind,
     pub pattern: String,
     pub spans_by_seq: Vec<Vec<(usize, usize)>>,
     pub total_matches: usize,
@@ -107,6 +114,23 @@ pub struct SearchColorConfig {
     pub min_component: u8,
     pub gap_dim_factor: f32,
     pub luminance_threshold: f32,
+}
+
+pub struct EmbossConfig {
+    pub emboss_bin_dir: Option<PathBuf>,
+}
+
+impl EmbossConfig {
+    pub fn from_file(path: &str) -> Result<Self, TermalError> {
+        let contents = fs::read_to_string(path)?;
+        let value: Value =
+            serde_json::from_str(&contents).map_err(|e| format!("Invalid JSON: {}", e))?;
+        let emboss_bin_dir = value
+            .get("emboss_bin_dir")
+            .and_then(|v| v.as_str())
+            .map(PathBuf::from);
+        Ok(Self { emboss_bin_dir })
+    }
 }
 
 impl SearchColorConfig {
@@ -172,6 +196,7 @@ pub struct SearchEntry {
     pub id: usize,
     pub name: String,
     pub query: String,
+    pub kind: SearchKind,
     pub enabled: bool,
     pub color: SearchColor,
     pub spans_by_seq: Vec<Vec<(usize, usize)>>,
@@ -217,6 +242,7 @@ pub struct App {
     search_registry: SearchRegistry,
     search_color_config: SearchColorConfig,
     current_msg: CurrentMessage,
+    emboss_bin_dir: Option<PathBuf>,
 }
 
 impl App {
@@ -241,6 +267,7 @@ impl App {
             search_registry: SearchRegistry::new(search_color_config.palette.clone()),
             search_color_config,
             current_msg: cur_msg,
+            emboss_bin_dir: None,
         }
     }
 
@@ -484,7 +511,7 @@ impl App {
             self.seq_search_state = None;
             return;
         }
-        match compute_seq_search_state(&self.alignment.sequences, pattern) {
+        match compute_seq_search_state(&self.alignment.sequences, pattern, SearchKind::Regex) {
             Ok(state) => self.seq_search_state = Some(state),
             Err(e) => {
                 self.error_msg(format!("Malformed regex {}.", e));
@@ -503,6 +530,10 @@ impl App {
         self.seq_search_state
             .as_ref()
             .map(|state| state.pattern.as_str())
+    }
+
+    pub fn current_seq_search_kind(&self) -> Option<SearchKind> {
+        self.seq_search_state.as_ref().map(|state| state.kind)
     }
 
     pub fn seq_search_counts(&self) -> Option<(usize, usize)> {
@@ -551,13 +582,22 @@ impl App {
     }
 
     pub fn add_saved_search(&mut self, name: String, query: String) -> Result<(), String> {
+        self.add_saved_search_with_kind(name, query, SearchKind::Regex)
+    }
+
+    pub fn add_saved_search_with_kind(
+        &mut self,
+        name: String,
+        query: String,
+        kind: SearchKind,
+    ) -> Result<(), String> {
         if query.is_empty() {
             return Err(String::from("Empty search query"));
         }
-        let state = compute_seq_search_state(&self.alignment.sequences, &query)
+        let state = compute_seq_search_state(&self.alignment.sequences, &query, kind)
             .map_err(|e| format!("Malformed regex {}.", e))?;
         self.search_registry
-            .add_search(name, query, state.spans_by_seq);
+            .add_search(name, query, kind, state.spans_by_seq);
         Ok(())
     }
 
@@ -571,6 +611,29 @@ impl App {
 
     pub fn saved_searches(&self) -> &[SearchEntry] {
         self.search_registry.entries()
+    }
+
+    pub fn set_emboss_bin_dir(&mut self, dir: Option<PathBuf>) {
+        self.emboss_bin_dir = dir;
+    }
+
+    pub fn emboss_search_sequences(&mut self, pattern: &str) {
+        if pattern.is_empty() {
+            self.seq_search_state = None;
+            return;
+        }
+        match compute_emboss_search_state(
+            &self.alignment.headers,
+            &self.alignment.sequences,
+            pattern,
+            self.emboss_bin_dir.as_deref(),
+        ) {
+            Ok(state) => self.seq_search_state = Some(state),
+            Err(e) => {
+                self.error_msg(format!("Emboss search failed: {}", e));
+                self.seq_search_state = None;
+            }
+        }
     }
 
     pub fn remove_sequence(&mut self, rank: usize) -> Option<(String, String)> {
@@ -621,7 +684,7 @@ impl App {
     fn refresh_saved_searches(&mut self) {
         let sequences = &self.alignment.sequences;
         for entry in &mut self.search_registry.searches {
-            if let Ok(state) = compute_seq_search_state(sequences, &entry.query) {
+            if let Ok(state) = compute_seq_search_state(sequences, &entry.query, entry.kind) {
                 entry.spans_by_seq = state.spans_by_seq;
             } else {
                 entry.spans_by_seq = vec![Vec::new(); sequences.len()];
@@ -739,7 +802,13 @@ impl SearchRegistry {
         &self.searches
     }
 
-    fn add_search(&mut self, name: String, query: String, spans_by_seq: Vec<Vec<(usize, usize)>>) {
+    fn add_search(
+        &mut self,
+        name: String,
+        query: String,
+        kind: SearchKind,
+        spans_by_seq: Vec<Vec<(usize, usize)>>,
+    ) {
         let color = self.palette[self.next_color_index % self.palette.len()];
         self.next_color_index += 1;
         let id = self.searches.len() + 1;
@@ -747,6 +816,7 @@ impl SearchRegistry {
             id,
             name,
             query,
+            kind,
             enabled: true,
             color,
             spans_by_seq,
@@ -785,6 +855,7 @@ impl SearchRegistry {
 fn compute_seq_search_state(
     sequences: &[String],
     pattern: &str,
+    kind: SearchKind,
 ) -> Result<SeqSearchState, regex::Error> {
     let re = Regex::new(pattern)?;
     let mut spans_by_seq: Vec<Vec<(usize, usize)>> = Vec::with_capacity(sequences.len());
@@ -821,6 +892,7 @@ fn compute_seq_search_state(
         }
     }
     Ok(SeqSearchState {
+        kind,
         pattern: pattern.to_string(),
         spans_by_seq,
         total_matches,
@@ -846,6 +918,133 @@ fn parse_color_value(value: &Value) -> Result<SearchColor, TermalError> {
     }
 }
 
+fn compute_emboss_search_state(
+    headers: &[String],
+    sequences: &[String],
+    pattern: &str,
+    emboss_bin_dir: Option<&Path>,
+) -> Result<SeqSearchState, TermalError> {
+    let is_nucleic = sequences
+        .iter()
+        .all(|seq| seq.chars().all(|c| is_gap(c) || is_acgt(c)));
+    let tool = if is_nucleic { "fuzznuc" } else { "fuzzpro" };
+    let tool_path = emboss_bin_dir
+        .map(|dir| dir.join(tool))
+        .unwrap_or_else(|| PathBuf::from(tool));
+
+    let tmp_path = emboss_temp_fasta(headers, sequences)?;
+    let output = std::process::Command::new(tool_path)
+        .arg("-seq")
+        .arg(&tmp_path)
+        .arg("-pat")
+        .arg(pattern)
+        .arg("-out")
+        .arg("stdout")
+        .arg("-rformat")
+        .arg("gff")
+        .output()
+        .map_err(|e| TermalError::Format(format!("Failed to run {}: {}", tool, e)))?;
+    fs::remove_file(&tmp_path).ok();
+
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(&output.stderr);
+        return Err(TermalError::Format(format!("{} failed: {}", tool, msg)));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_gff_to_state(headers, sequences, &stdout, pattern)
+}
+
+fn emboss_temp_fasta(headers: &[String], sequences: &[String]) -> Result<PathBuf, TermalError> {
+    let mut path = std::env::temp_dir();
+    let unique = format!("termal-emboss-{}.fa", std::process::id());
+    path.push(unique);
+    let file = fs::File::create(&path)?;
+    let mut writer = BufWriter::new(file);
+    for (header, seq) in headers.iter().zip(sequences.iter()) {
+        let ungapped: String = seq.chars().filter(|c| !is_gap(*c)).collect();
+        writeln!(writer, ">{}", header)?;
+        writeln!(writer, "{}", ungapped)?;
+    }
+    Ok(path)
+}
+
+fn parse_gff_to_state(
+    headers: &[String],
+    sequences: &[String],
+    gff: &str,
+    pattern: &str,
+) -> Result<SeqSearchState, TermalError> {
+    let mut header_to_index: HashMap<&str, usize> = HashMap::new();
+    for (idx, header) in headers.iter().enumerate() {
+        header_to_index.insert(header.as_str(), idx);
+    }
+    let mut spans_by_seq: Vec<Vec<(usize, usize)>> = vec![Vec::new(); sequences.len()];
+    for line in gff.lines() {
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 5 {
+            continue;
+        }
+        let seqid = parts[0];
+        let start: usize = parts[3].parse().unwrap_or(0);
+        let end: usize = parts[4].parse().unwrap_or(0);
+        if start == 0 || end == 0 {
+            continue;
+        }
+        let Some(&seq_index) = header_to_index.get(seqid) else {
+            continue;
+        };
+        let map = ungapped_to_gapped_map(&sequences[seq_index]);
+        if start > map.len() || end > map.len() || start > end {
+            continue;
+        }
+        let g_start = map[start - 1];
+        let g_end = map[end - 1] + 1;
+        spans_by_seq[seq_index].push((g_start, g_end));
+    }
+    let mut total_matches = 0;
+    let mut sequences_with_matches = 0;
+    let mut matches: Vec<SeqMatch> = Vec::new();
+    for (seq_index, spans) in spans_by_seq.iter().enumerate() {
+        if !spans.is_empty() {
+            sequences_with_matches += 1;
+            total_matches += spans.len();
+        }
+        for (start, end) in spans {
+            matches.push(SeqMatch {
+                seq_index,
+                start: *start,
+                end: *end,
+            });
+        }
+    }
+    Ok(SeqSearchState {
+        kind: SearchKind::Emboss,
+        pattern: pattern.to_string(),
+        spans_by_seq,
+        total_matches,
+        sequences_with_matches,
+        matches,
+        current_match: 0,
+    })
+}
+
+fn ungapped_to_gapped_map(seq: &str) -> Vec<usize> {
+    let mut map: Vec<usize> = Vec::new();
+    for (idx, ch) in seq.chars().enumerate() {
+        if is_gap(ch) {
+            continue;
+        }
+        map.push(idx);
+    }
+    map
+}
+
+fn is_acgt(c: char) -> bool {
+    matches!(c, 'A' | 'C' | 'G' | 'T' | 'a' | 'c' | 'g' | 't')
+}
 fn make_output_path(original: &str, prefix: &str) -> PathBuf {
     let path = Path::new(original);
     let file_name = path

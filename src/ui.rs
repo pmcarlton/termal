@@ -28,7 +28,7 @@ use self::{
     line_editor::LineEditor,
 };
 
-use crate::app::App;
+use crate::app::{App, SearchKind};
 
 const V_SCROLLBAR_WIDTH: u16 = 1;
 const MIN_COLS_SHOWN: u16 = 1;
@@ -57,11 +57,22 @@ enum VideoMode {
 enum InputMode {
     Normal,
     Help,
-    PendingCount { count: usize },
-    LabelSearch { pattern: String },
-    Search { editor: LineEditor },
-    Command { editor: LineEditor },
-    SearchList { selected: usize },
+    PendingCount {
+        count: usize,
+    },
+    LabelSearch {
+        pattern: String,
+    },
+    Search {
+        editor: LineEditor,
+        kind: SearchKind,
+    },
+    Command {
+        editor: LineEditor,
+    },
+    SearchList {
+        selected: usize,
+    },
     // ExCommand { buffer: String },
 }
 
@@ -523,7 +534,7 @@ impl<'a> UI<'a> {
 
     pub fn search_query(&self) -> String {
         match &self.input_mode {
-            InputMode::Search { editor } => editor.text(),
+            InputMode::Search { editor, .. } => editor.text(),
             _ => String::new(),
         }
     }
@@ -576,13 +587,27 @@ impl<'a> UI<'a> {
         }
     }
 
+    fn search_kind_label(kind: SearchKind) -> &'static str {
+        match kind {
+            SearchKind::Regex => "R",
+            SearchKind::Emboss => "E",
+        }
+    }
+
     pub fn search_status_line(&self) -> String {
         let enabled: Vec<String> = self
             .app
             .saved_searches()
             .iter()
             .filter(|entry| entry.enabled)
-            .map(|entry| format!("{}:{}", entry.id, entry.name))
+            .map(|entry| {
+                format!(
+                    "{}:{}:{}",
+                    entry.id,
+                    Self::search_kind_label(entry.kind),
+                    entry.name
+                )
+            })
             .collect();
         let saved = if enabled.is_empty() {
             String::from("-")
@@ -590,12 +615,21 @@ impl<'a> UI<'a> {
             enabled.join(",")
         };
         let current = match &self.input_mode {
-            InputMode::Search { editor } => editor.text(),
-            _ => self
-                .app
-                .current_seq_search_pattern()
-                .unwrap_or("-")
-                .to_string(),
+            InputMode::Search { editor, kind } => {
+                format!("{}:{}", Self::search_kind_label(*kind), editor.text())
+            }
+            _ => {
+                let kind = self.app.current_seq_search_kind();
+                let pattern = self
+                    .app
+                    .current_seq_search_pattern()
+                    .unwrap_or("-")
+                    .to_string();
+                match kind {
+                    Some(k) => format!("{}:{}", Self::search_kind_label(k), pattern),
+                    None => "-".to_string(),
+                }
+            }
         };
         format!("Saved: {} | Current: {}", saved, current)
     }

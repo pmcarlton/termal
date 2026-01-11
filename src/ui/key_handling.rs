@@ -10,6 +10,7 @@ use super::{
     //SearchDirection,
     {ZoomLevel, UI},
 };
+use crate::app::SearchKind;
 
 pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
     let mut done = false;
@@ -19,7 +20,7 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         Help => ui.input_mode = InputMode::Normal,
         PendingCount { count } => done = handle_pending_count_key(ui, key_event, count),
         LabelSearch { pattern } => handle_label_search(ui, key_event, &pattern),
-        Search { editor } => handle_search(ui, key_event, editor),
+        Search { editor, kind } => handle_search(ui, key_event, editor, kind),
         Command { editor } => handle_command(ui, key_event, editor),
         SearchList { selected } => handle_search_list(ui, key_event, selected),
     };
@@ -61,6 +62,15 @@ fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
         KeyCode::Char('/') => {
             ui.input_mode = InputMode::Search {
                 editor: LineEditor::new(),
+                kind: SearchKind::Regex,
+            };
+            ui.app
+                .argument_msg(String::from("Search: "), String::from(""));
+        }
+        KeyCode::Char('\\') => {
+            ui.input_mode = InputMode::Search {
+                editor: LineEditor::new(),
+                kind: SearchKind::Emboss,
             };
             ui.app
                 .argument_msg(String::from("Search: "), String::from(""));
@@ -132,7 +142,7 @@ fn handle_label_search(ui: &mut UI, key_event: KeyEvent, pattern: &str) {
     }
 }
 
-fn handle_search(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
+fn handle_search(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor, kind: SearchKind) {
     match key_event.code {
         KeyCode::Esc => {
             ui.input_mode = InputMode::Normal;
@@ -140,7 +150,10 @@ fn handle_search(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
         }
         KeyCode::Enter => {
             let query = editor.text();
-            ui.app.regex_search_sequences(&query);
+            match kind {
+                SearchKind::Regex => ui.app.regex_search_sequences(&query),
+                SearchKind::Emboss => ui.app.emboss_search_sequences(&query),
+            }
             ui.input_mode = InputMode::Normal;
             if let Some((total, sequences)) = ui.app.seq_search_counts() {
                 ui.app
@@ -151,31 +164,31 @@ fn handle_search(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
         }
         KeyCode::Char(c) if c.is_ascii_graphic() || c == ' ' => {
             editor.insert_char(c);
-            ui.input_mode = InputMode::Search { editor };
+            ui.input_mode = InputMode::Search { editor, kind };
             ui.app
                 .argument_msg(String::from("Search: "), ui.search_query());
         }
         KeyCode::Backspace => {
             editor.backspace();
-            ui.input_mode = InputMode::Search { editor };
+            ui.input_mode = InputMode::Search { editor, kind };
             ui.app
                 .argument_msg(String::from("Search: "), ui.search_query());
         }
         KeyCode::Left => {
             editor.move_left();
-            ui.input_mode = InputMode::Search { editor };
+            ui.input_mode = InputMode::Search { editor, kind };
         }
         KeyCode::Right => {
             editor.move_right();
-            ui.input_mode = InputMode::Search { editor };
+            ui.input_mode = InputMode::Search { editor, kind };
         }
         KeyCode::Home => {
             editor.move_home();
-            ui.input_mode = InputMode::Search { editor };
+            ui.input_mode = InputMode::Search { editor, kind };
         }
         KeyCode::End => {
             editor.move_end();
-            ui.input_mode = InputMode::Search { editor };
+            ui.input_mode = InputMode::Search { editor, kind };
         }
         _ => {}
     }
@@ -240,7 +253,14 @@ fn handle_search_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {
         KeyCode::Char('a') => {
             if let Some(query) = ui.app.current_seq_search_pattern() {
                 let name = query.to_string();
-                match ui.app.add_saved_search(name, query.to_string()) {
+                let kind = ui
+                    .app
+                    .current_seq_search_kind()
+                    .unwrap_or(SearchKind::Regex);
+                match ui
+                    .app
+                    .add_saved_search_with_kind(name, query.to_string(), kind)
+                {
                     Ok(_) => {
                         let last = ui.app.saved_searches().len().saturating_sub(1);
                         ui.input_mode = InputMode::SearchList { selected: last };
@@ -497,15 +517,27 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('/') => {
             ui.input_mode = InputMode::Search {
                 editor: LineEditor::new(),
+                kind: SearchKind::Regex,
+            };
+            ui.app
+                .argument_msg(String::from("Search: "), String::from(""));
+        }
+        KeyCode::Char('\\') => {
+            ui.input_mode = InputMode::Search {
+                editor: LineEditor::new(),
+                kind: SearchKind::Emboss,
             };
             ui.app
                 .argument_msg(String::from("Search: "), String::from(""));
         }
         KeyCode::Char('P') => {
-            if let Some(query) = ui.app.current_seq_search_pattern() {
+            if let (Some(query), Some(kind)) = (
+                ui.app.current_seq_search_pattern(),
+                ui.app.current_seq_search_kind(),
+            ) {
                 match ui
                     .app
-                    .add_saved_search(query.to_string(), query.to_string())
+                    .add_saved_search_with_kind(query.to_string(), query.to_string(), kind)
                 {
                     Ok(_) => {
                         ui.app.clear_seq_search();

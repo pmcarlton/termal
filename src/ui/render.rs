@@ -652,15 +652,19 @@ fn render_search_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
     let selected = ui.search_list_selected().unwrap_or(0);
 
     let mut lines: Vec<Line> = Vec::new();
-    lines.push(Line::from("ID On Name Query"));
+    lines.push(Line::from("ID On Ty Name Query"));
     if entries.is_empty() {
         lines.push(Line::from("No saved searches."));
     } else {
         for (idx, entry) in entries.iter().enumerate() {
             let on = if entry.enabled { "*" } else { " " };
+            let kind = match entry.kind {
+                crate::app::SearchKind::Regex => "R",
+                crate::app::SearchKind::Emboss => "E",
+            };
             let line = format!(
-                "{:>2}  {}  {:<12} {}",
-                entry.id, on, entry.name, entry.query
+                "{:>2}  {}  {}  {:<12} {}",
+                entry.id, on, kind, entry.name, entry.query
             );
             let style = if idx == selected {
                 Style::default().add_modifier(Modifier::REVERSED)

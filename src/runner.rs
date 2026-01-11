@@ -12,7 +12,7 @@ use std::{
 use log::info;
 
 use crate::alignment::Alignment;
-use crate::app::{App, SearchColorConfig};
+use crate::app::{App, EmbossConfig, SearchColorConfig};
 use crate::seq::fasta::read_fasta_file;
 use crate::seq::stockholm::read_stockholm_file;
 use crate::ui::{key_handling::handle_key_press, render::render_ui, UI};
@@ -61,6 +61,10 @@ struct Cli {
     /// Search highlight colors config (JSON)
     #[arg(long = "search-colors")]
     search_colors: Option<String>,
+
+    /// EMBOSS tools config (JSON)
+    #[arg(long = "tools-config")]
+    tools_config: Option<String>,
 
     /// Fixed terminal width (mostly used for testing/debugging)
     #[arg(short, long, requires = "height")]
@@ -208,6 +212,21 @@ pub fn run() -> Result<(), TermalError> {
             match SearchColorConfig::from_file(&path) {
                 Ok(config) => app.set_search_color_config(config),
                 Err(e) => app.error_msg(format!("Error reading search colors {}: {}", path, e)),
+            }
+        }
+
+        let default_tools_config = "tools.config";
+        let tools_config_path = cli.tools_config.or_else(|| {
+            if Path::new(default_tools_config).exists() {
+                Some(default_tools_config.to_string())
+            } else {
+                None
+            }
+        });
+        if let Some(path) = tools_config_path {
+            match EmbossConfig::from_file(&path) {
+                Ok(config) => app.set_emboss_bin_dir(config.emboss_bin_dir),
+                Err(e) => app.error_msg(format!("Error reading tools config {}: {}", path, e)),
             }
         }
 

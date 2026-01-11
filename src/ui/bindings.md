@@ -32,6 +32,7 @@ Esc          : cancel search
 ## Searching (sequences)
 
 /regexp<Ret> : search sequences
+\\pattern<Ret> : search sequences (EMBOSS fuzzpro/fuzznuc)
 Esc          : cancel search
 :s<Ret>      : open Search List panel (a=add, d=delete, space=toggle, 1-9=select)
 P            : save current search and clear its highlights
