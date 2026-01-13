@@ -1022,6 +1022,9 @@ fn parse_gff_to_state(
     let mut header_to_index: HashMap<&str, usize> = HashMap::new();
     for (idx, header) in headers.iter().enumerate() {
         header_to_index.insert(header.as_str(), idx);
+        if let Some(token) = header.split_whitespace().next() {
+            header_to_index.entry(token).or_insert(idx);
+        }
     }
     let mut spans_by_seq: Vec<Vec<(usize, usize)>> = vec![Vec::new(); sequences.len()];
     for line in gff.lines() {
@@ -1303,5 +1306,15 @@ mod tests {
         assert_eq!(super::parse_emboss_query("ABC"), (None, "ABC"));
         assert_eq!(super::parse_emboss_query("2"), (None, "2"));
         assert_eq!(super::parse_emboss_query("2  "), (None, "2"));
+    }
+
+    #[test]
+    fn test_parse_gff_matches_header_token() {
+        let headers = vec![String::from("seq 1"), String::from("seq2")];
+        let sequences = vec![String::from("ABCD"), String::from("EFGH")];
+        let gff = "seq\tsrc\tfeat\t2\t4\t.\t.\t.\tID=seq.1\n";
+        let state = super::parse_gff_to_state(&headers, &sequences, gff, "TEST").unwrap();
+        assert_eq!(state.spans_by_seq[0], vec![(1, 4)]);
+        assert!(state.spans_by_seq[1].is_empty());
     }
 }
