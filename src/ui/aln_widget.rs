@@ -29,6 +29,7 @@ pub struct SeqPane<'a> {
     pub style_lut: &'a [Style],
     pub highlights: &'a [SearchHighlight<'a>],
     pub highlight_config: SearchHighlightConfig,
+    pub underline_seq_index: Option<usize>,
     // TODO: not sure this is required - if not, also remove from other SeqPane* structs
     pub base_style: Style, // optional, for clearing/background
 }
@@ -58,6 +59,10 @@ impl<'a> Widget for SeqPane<'a> {
             let highlight_color = |col: usize, ch: char| {
                 highlight_color(&self.highlights, &self.highlight_config, seq_index, col, ch)
             };
+            let underline_row = self
+                .underline_seq_index
+                .map(|idx| idx == seq_index)
+                .unwrap_or(false);
 
             for c in 0..cols {
                 let j = self.left_j + c;
@@ -74,6 +79,9 @@ impl<'a> Widget for SeqPane<'a> {
                     if is_current {
                         style = style.add_modifier(Modifier::UNDERLINED);
                     }
+                }
+                if underline_row {
+                    style = style.add_modifier(Modifier::UNDERLINED);
                 }
 
                 buf.cell_mut(Position::from((area.x + c as u16, area.y + r as u16)))
@@ -93,6 +101,7 @@ pub struct SeqPaneZoomedOut<'a> {
     pub style_lut: &'a [Style],     // style per byte (0..=255)
     pub highlights: &'a [SearchHighlight<'a>],
     pub highlight_config: SearchHighlightConfig,
+    pub underline_seq_index: Option<usize>,
     pub base_style: Style, // for clearing/background
     pub show_zoombox: bool,
     pub zb_top: usize,
@@ -133,6 +142,10 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
             let highlight_color = |col: usize, ch: char| {
                 highlight_color(&self.highlights, &self.highlight_config, seq_index, col, ch)
             };
+            let underline_row = self
+                .underline_seq_index
+                .map(|idx| idx == seq_index)
+                .unwrap_or(false);
 
             for c in 0..max_c {
                 let j = self.retained_cols[c];
@@ -151,6 +164,9 @@ impl<'a> Widget for SeqPaneZoomedOut<'a> {
                     if is_current {
                         style = style.add_modifier(Modifier::UNDERLINED);
                     }
+                }
+                if underline_row {
+                    style = style.add_modifier(Modifier::UNDERLINED);
                 }
 
                 buf.cell_mut(Position::from((area.x + c as u16, area.y + r as u16)))

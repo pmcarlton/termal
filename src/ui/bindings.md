@@ -34,7 +34,7 @@ Esc          : cancel search
 /regexp<Ret> : search sequences
 \\pattern<Ret> : search sequences (EMBOSS fuzzpro/fuzznuc; optional leading "N " sets -pmis)
 Esc          : cancel search
-:s<Ret>      : open Search List panel (a=add, d=delete, space=toggle, 1-9=select)
+:s<Ret>      : open Search List panel (a=add, c=current, d=delete, space=toggle, 1-9=select)
 P            : save current search and clear its highlights
 W            : write currently shown alignment to filtered<file>
 

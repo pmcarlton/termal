@@ -145,7 +145,7 @@ Searching
 * \\pattern<Ret> : search sequences (EMBOSS fuzzpro/fuzznuc; optional leading "N " sets -pmis)
 * n,p          : next / previous sequence match (current match underlined)
 * P            : save current sequence search and clear its highlights
-* :s<Ret>      : open Search List panel (a=add, d=delete, space=toggle, 1-9=select)
+* :s<Ret>      : open Search List panel (a=add, c=current, d=delete, space=toggle, 1-9=select)
 * W            : write currently shown alignment to filtered<file>
 
 OPTIONS

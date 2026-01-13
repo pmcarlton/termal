@@ -287,6 +287,16 @@ fn handle_search_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {
                 };
             }
         }
+        KeyCode::Char('c') => {
+            if let Some(entry) = ui.app.saved_searches().get(selected) {
+                let query = entry.query.clone();
+                match entry.kind {
+                    SearchKind::Regex => ui.app.regex_search_sequences(&query),
+                    SearchKind::Emboss => ui.app.emboss_search_sequences(&query),
+                }
+                ui.app.info_msg("Current search set");
+            }
+        }
         KeyCode::Char(' ') => {
             if ui.app.toggle_saved_search(selected) {
                 ui.input_mode = InputMode::SearchList { selected };

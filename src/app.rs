@@ -9,13 +9,13 @@ use std::{
 };
 
 use hex_color::HexColor;
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use serde_json::Value;
 
 use crate::{
     alignment::Alignment,
     app::Metric::{PctIdWrtConsensus, SeqLen},
-    app::SeqOrdering::{MetricDecr, MetricIncr, SourceFile, User},
+    app::SeqOrdering::{MetricDecr, MetricIncr, SearchMatch, SourceFile, User},
     errors::TermalError,
 };
 
@@ -38,6 +38,7 @@ pub enum SeqOrdering {
     SourceFile,
     MetricIncr,
     MetricDecr,
+    SearchMatch,
     User,
 }
 
@@ -47,6 +48,7 @@ impl fmt::Display for SeqOrdering {
             SourceFile => '-',
             MetricIncr => '↑',
             MetricDecr => '↓',
+            SearchMatch => 's',
             User => 'u',
         };
         write!(f, "{}", sord)
@@ -243,6 +245,8 @@ pub struct App {
     search_color_config: SearchColorConfig,
     current_msg: CurrentMessage,
     emboss_bin_dir: Option<PathBuf>,
+    filtered_output_path: PathBuf,
+    rejected_output_path: PathBuf,
 }
 
 impl App {
@@ -254,6 +258,8 @@ impl App {
             kind: MessageKind::Info,
         };
         let search_color_config = SearchColorConfig::default();
+        let filtered_output_path = next_available_output_path(path, "filt");
+        let rejected_output_path = next_available_output_path(path, "rej");
         App {
             filename: path.to_string(),
             alignment,
@@ -268,6 +274,8 @@ impl App {
             search_color_config,
             current_msg: cur_msg,
             emboss_bin_dir: None,
+            filtered_output_path,
+            rejected_output_path,
         }
     }
 
@@ -291,6 +299,23 @@ impl App {
                 let mut ord = order(self.order_values());
                 ord.reverse();
                 self.ordering = ord;
+            }
+            SearchMatch => {
+                if let Some(state) = &self.seq_search_state {
+                    let mut matches: Vec<usize> = Vec::new();
+                    let mut non_matches: Vec<usize> = Vec::new();
+                    for (idx, spans) in state.spans_by_seq.iter().enumerate() {
+                        if spans.is_empty() {
+                            non_matches.push(idx);
+                        } else {
+                            matches.push(idx);
+                        }
+                    }
+                    matches.extend(non_matches);
+                    self.ordering = matches;
+                } else {
+                    self.ordering = (0..self.alignment.num_seq()).collect();
+                }
             }
             SourceFile => {
                 self.ordering = (0..self.alignment.num_seq()).collect();
@@ -335,7 +360,8 @@ impl App {
             SourceFile => MetricIncr,
             MetricIncr => MetricDecr,
             // move to User IFF valid ordering
-            MetricDecr => match self.user_ordering {
+            MetricDecr => SearchMatch,
+            SearchMatch => match self.user_ordering {
                 Some(_) => User,
                 None => SourceFile,
             },
@@ -348,11 +374,12 @@ impl App {
         self.ordering_criterion = match self.ordering_criterion {
             MetricIncr => SourceFile,
             MetricDecr => MetricIncr,
-            User => MetricDecr,
+            SearchMatch => MetricDecr,
+            User => SearchMatch,
             // move to User IFF valid ordering
             SourceFile => match self.user_ordering {
                 Some(_) => User,
-                None => MetricDecr,
+                None => SearchMatch,
             },
         };
         self.recompute_ordering();
@@ -410,7 +437,7 @@ impl App {
 
     pub fn regex_search_labels(&mut self, pattern: &str) {
         // self.debug_msg("Regex search");
-        let try_re = Regex::new(pattern);
+        let try_re = RegexBuilder::new(pattern).case_insensitive(true).build();
         match try_re {
             Ok(re) => {
                 // actually numbers of matching lines, but a bit longish
@@ -508,14 +535,19 @@ impl App {
 
     pub fn regex_search_sequences(&mut self, pattern: &str) {
         if pattern.is_empty() {
-            self.seq_search_state = None;
+            self.clear_seq_search();
             return;
         }
         match compute_seq_search_state(&self.alignment.sequences, pattern, SearchKind::Regex) {
-            Ok(state) => self.seq_search_state = Some(state),
+            Ok(state) => {
+                self.seq_search_state = Some(state);
+                if matches!(self.ordering_criterion, SearchMatch) {
+                    self.recompute_ordering();
+                }
+            }
             Err(e) => {
                 self.error_msg(format!("Malformed regex {}.", e));
-                self.seq_search_state = None;
+                self.clear_seq_search();
             }
         }
     }
@@ -570,6 +602,9 @@ impl App {
 
     pub fn clear_seq_search(&mut self) {
         self.seq_search_state = None;
+        if matches!(self.ordering_criterion, SearchMatch) {
+            self.recompute_ordering();
+        }
     }
 
     pub fn search_color_config(&self) -> &SearchColorConfig {
@@ -628,7 +663,7 @@ impl App {
 
     pub fn emboss_search_sequences(&mut self, pattern: &str) {
         if pattern.is_empty() {
-            self.seq_search_state = None;
+            self.clear_seq_search();
             return;
         }
         match compute_emboss_search_state(
@@ -637,10 +672,15 @@ impl App {
             pattern,
             self.emboss_bin_dir.as_deref(),
         ) {
-            Ok(state) => self.seq_search_state = Some(state),
+            Ok(state) => {
+                self.seq_search_state = Some(state);
+                if matches!(self.ordering_criterion, SearchMatch) {
+                    self.recompute_ordering();
+                }
+            }
             Err(e) => {
                 self.error_msg(format!("Emboss search failed: {}", e));
-                self.seq_search_state = None;
+                self.clear_seq_search();
             }
         }
     }
@@ -683,11 +723,11 @@ impl App {
     }
 
     pub fn filtered_path(&self) -> PathBuf {
-        make_output_path(&self.filename, "filtered")
+        self.filtered_output_path.clone()
     }
 
     pub fn rejected_path(&self) -> PathBuf {
-        make_output_path(&self.filename, "rejected")
+        self.rejected_output_path.clone()
     }
 
     fn refresh_saved_searches(&mut self) {
@@ -875,7 +915,7 @@ fn compute_seq_search_state(
     pattern: &str,
     kind: SearchKind,
 ) -> Result<SeqSearchState, regex::Error> {
-    let re = Regex::new(pattern)?;
+    let re = RegexBuilder::new(pattern).case_insensitive(true).build()?;
     let mut spans_by_seq: Vec<Vec<(usize, usize)>> = Vec::with_capacity(sequences.len());
     let mut total_matches = 0;
     let mut sequences_with_matches = 0;
@@ -950,13 +990,14 @@ fn compute_emboss_search_state(
         .map(|dir| dir.join(tool))
         .unwrap_or_else(|| PathBuf::from(tool));
     let (pmis, emboss_pattern) = parse_emboss_query(pattern);
+    let emboss_pattern = emboss_pattern.to_ascii_uppercase();
 
     let tmp_path = emboss_temp_fasta(headers, sequences)?;
     let mut cmd = std::process::Command::new(tool_path);
     cmd.arg("-seq")
         .arg(&tmp_path)
         .arg("-pat")
-        .arg(emboss_pattern)
+        .arg(&emboss_pattern)
         .arg("-out")
         .arg("stdout")
         .arg("-rformat")
@@ -1006,7 +1047,11 @@ fn emboss_temp_fasta(headers: &[String], sequences: &[String]) -> Result<PathBuf
     let file = fs::File::create(&path)?;
     let mut writer = BufWriter::new(file);
     for (header, seq) in headers.iter().zip(sequences.iter()) {
-        let ungapped: String = seq.chars().filter(|c| !is_gap(*c)).collect();
+        let ungapped: String = seq
+            .chars()
+            .filter(|c| !is_gap(*c))
+            .map(|c| c.to_ascii_uppercase())
+            .collect();
         writeln!(writer, ">{}", header)?;
         writeln!(writer, "{}", ungapped)?;
     }
@@ -1093,17 +1138,34 @@ fn ungapped_to_gapped_map(seq: &str) -> Vec<usize> {
 fn is_acgt(c: char) -> bool {
     matches!(c, 'A' | 'C' | 'G' | 'T' | 'a' | 'c' | 'g' | 't')
 }
-fn make_output_path(original: &str, prefix: &str) -> PathBuf {
+fn next_available_output_path(original: &str, tag: &str) -> PathBuf {
     let path = Path::new(original);
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or(original);
-    let new_name = format!("{}{}", prefix, file_name);
-    match path.parent() {
-        Some(parent) => parent.join(new_name),
-        None => PathBuf::from(new_name),
+    let stem = path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or(file_name);
+    let ext = path.extension().and_then(|name| name.to_str());
+    let parent = path.parent().unwrap_or_else(|| Path::new(""));
+    for idx in 1..=9999 {
+        let suffix = format!("{}{:02}", tag, idx);
+        let new_name = match ext {
+            Some(ext) => format!("{}.{}.{}", stem, suffix, ext),
+            None => format!("{}.{}", stem, suffix),
+        };
+        let candidate = if parent.as_os_str().is_empty() {
+            PathBuf::from(&new_name)
+        } else {
+            parent.join(&new_name)
+        };
+        if !candidate.exists() {
+            return candidate;
+        }
     }
+    parent.join(format!("{}.{}", stem, tag))
 }
 
 #[cfg(test)]
@@ -1261,6 +1323,17 @@ mod tests {
     }
 
     #[test]
+    fn test_regex_lbl_search_case_insensitive() {
+        let hdrs = vec![String::from("Accipiter"), String::from("Aquila")];
+        let seqs = vec![String::from("catg"), String::from("catg")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.regex_search_labels("^a");
+        assert!(app.is_label_search_match(0));
+        assert!(app.is_label_search_match(1));
+    }
+
+    #[test]
     fn test_regex_seq_search_spans() {
         let hdrs = vec![String::from("R1")];
         let seqs = vec![String::from("A-C--GT")];
@@ -1280,6 +1353,29 @@ mod tests {
                 end: 6
             }
         );
+    }
+
+    #[test]
+    fn test_search_ordering_groups_matches() {
+        let hdrs = vec![
+            String::from("R1"),
+            String::from("R2"),
+            String::from("R3"),
+            String::from("R4"),
+        ];
+        let seqs = vec![
+            String::from("AA--"),
+            String::from("BBBB"),
+            String::from("A-A-"),
+            String::from("CCCC"),
+        ];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.regex_search_sequences("aa");
+        app.next_ordering_criterion();
+        app.next_ordering_criterion();
+        app.next_ordering_criterion();
+        assert_eq!(app.ordering, vec![0, 2, 1, 3]);
     }
 
     #[test]

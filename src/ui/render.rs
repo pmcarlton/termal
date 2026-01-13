@@ -407,6 +407,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
 
     let style_lut = build_style_lut(&ui);
     let (highlights, highlight_config) = ui.search_highlights();
+    let underline_seq_index = ui.app.current_label_match_rank();
     let base_style = Style::default().bg(Color::Black);
 
     match ui.zoom_level {
@@ -419,6 +420,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
                 style_lut: &style_lut,
                 highlights: &highlights,
                 highlight_config,
+                underline_seq_index,
                 base_style,
             };
             f.render_widget(pane, inner_aln_block);
@@ -433,6 +435,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
                 style_lut: &style_lut,
                 highlights: &highlights,
                 highlight_config,
+                underline_seq_index,
                 base_style,
                 show_zoombox: ui.show_zoombox,
                 zb_top: ui.zoombox_top(),
@@ -652,7 +655,10 @@ fn render_search_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
     let selected = ui.search_list_selected().unwrap_or(0);
 
     let mut lines: Vec<Line> = Vec::new();
-    lines.push(Line::from("ID On Ty Name Query"));
+    lines.push(Line::from(format!(
+        "{:>2}  {:<3} {:<4} {:<16} {}",
+        "ID", "On", "Type", "Name", "Query"
+    )));
     if entries.is_empty() {
         lines.push(Line::from("No saved searches."));
     } else {
@@ -663,7 +669,7 @@ fn render_search_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
                 crate::app::SearchKind::Emboss => "E",
             };
             let line = format!(
-                "{:>2}  {}  {}  {:<12} {}",
+                "{:>2}  {:<3} {:<4} {:<16} {}",
                 entry.id, on, kind, entry.name, entry.query
             );
             let style = if idx == selected {
