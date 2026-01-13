@@ -4,6 +4,8 @@ Run `termal -b` to see this message if it doesn't fit on screen.
 
 Arguments (counts, search patterns) and match index are shown in the modeline.
 
+Formats: use `-f` with `fasta`, `clustal`, or `stockholm`.
+
 ## Scrolling
 
 [count]arrows: scroll by count columns/sequences;

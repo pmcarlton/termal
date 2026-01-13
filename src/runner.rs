@@ -323,6 +323,10 @@ pub fn run() -> Result<(), TermalError> {
         stdout().execute(LeaveAlternateScreen)?;
         disable_raw_mode()?;
 
+        if let Some(msg) = app_ui.take_exit_message() {
+            println!("{}", msg);
+        }
+
         Ok(())
     } else {
         panic!("Expected filename argument");

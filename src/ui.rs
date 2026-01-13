@@ -154,6 +154,7 @@ pub struct UI<'a> {
     input_mode: InputMode,
     help_scroll: usize,
     help_page_height: usize,
+    exit_message: Option<String>,
 }
 
 impl<'a> UI<'a> {
@@ -189,6 +190,7 @@ impl<'a> UI<'a> {
             input_mode: InputMode::Normal,
             help_scroll: 0,
             help_page_height: 1,
+            exit_message: None,
         }
     }
 
@@ -207,6 +209,18 @@ impl<'a> UI<'a> {
 
     pub fn help_page_height(&self) -> usize {
         self.help_page_height.max(1)
+    }
+
+    pub fn set_exit_message(&mut self, msg: impl Into<String>) {
+        self.exit_message = Some(msg.into());
+    }
+
+    pub fn has_exit_message(&self) -> bool {
+        self.exit_message.is_some()
+    }
+
+    pub fn take_exit_message(&mut self) -> Option<String> {
+        self.exit_message.take()
     }
 
     // ****************************************************************

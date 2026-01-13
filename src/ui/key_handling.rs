@@ -27,7 +27,11 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         SearchList { selected } => handle_search_list(ui, key_event, selected),
         ConfirmReject { mode } => handle_confirm_reject(ui, key_event, mode),
     };
-    done
+    if ui.has_exit_message() {
+        true
+    } else {
+        done
+    }
 }
 
 fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
@@ -413,6 +417,9 @@ fn perform_reject(ui: &mut UI, mode: RejectMode) {
         removed.len(),
         out_path.display()
     ));
+    if ui.app.alignment.num_seq() == 0 {
+        ui.set_exit_message("all sequences have been rejected, ending program");
+    }
 }
 
 fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) {
@@ -674,6 +681,9 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
                     } else {
                         ui.app
                             .info_msg(format!("Rejected -> {}", out_path.display()));
+                        if ui.app.alignment.num_seq() == 0 {
+                            ui.set_exit_message("all sequences have been rejected, ending program");
+                        }
                     }
                 } else {
                     ui.app.warning_msg("No current label match");

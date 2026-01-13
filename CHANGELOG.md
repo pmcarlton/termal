@@ -11,6 +11,7 @@
 * Configurable search colors via `colors.config` and mono-white as the default color mode
 * Header filtering: reject current header match to `rejected<file>` (`!`) and write filtered view to `filtered<file>` (`W`)
 * README caveat about terminal color schemes affecting ANSI colors
+* Clustal alignment input format (`-f clustal`)
 
 ### Changed
 
@@ -22,6 +23,7 @@
 
 * Search navigation now keeps current search active (n/p) and shows match M of N
 * Saved EMBOSS searches now highlight correctly
+* Rejecting all sequences now exits cleanly with a message
 
 ## [1.3.0]
 

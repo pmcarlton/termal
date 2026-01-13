@@ -11,7 +11,7 @@ SYNOPSIS
 
 `termal [options] <MSA file>`
 
-where `<MSA file>` is an alignment in multiple FastA format.
+where `<MSA file>` is an alignment in multiple FastA, Clustal, or Stockholm format.
 
 OPTIONS (SHORT)
 ===============
@@ -26,6 +26,9 @@ most have equivalent key bindings (see KEY BINDINGS).
 
 `-i, --info`
 :    Info mode (no TUI) - prints out statistics about the alignment.
+
+`-f, --format <format>`
+:    Sequence file format [fasta|clustal|stockholm] (or just f|c|s)
 
 `-C, --no-color`
 :    Disable color
@@ -212,6 +215,6 @@ OPTIONS
 BUGS AND LIMITATIONS
 ====================
 
-* Currently, Termal can only read Fasta alignments (i.e., no Phylip or other formats).
+* Termal cannot yet read Phylip or other formats beyond fasta/clustal/stockholm.
 
 * A fast terminal is recommended (e.g., Alacritty, Ghostty, or WezTerm).
