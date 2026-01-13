@@ -10,6 +10,8 @@ for fast, keyboard-driven navigation in local and remote (SSH/HPC) environments.
 It requires no installer, has no runtime dependencies, and runs directly in a
 terminal.
 
+See `wishlist.md` for proposed enhancements and future features.
+
 ## Terminal colors and themes
 
 Termal relies on standard ANSI colors. If your terminal theme remaps ANSI black

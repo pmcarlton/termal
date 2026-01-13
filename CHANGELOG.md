@@ -12,6 +12,7 @@
 * Header filtering: reject current header match to `rejected<file>` (`!`) and write filtered view to `filtered<file>` (`W`)
 * README caveat about terminal color schemes affecting ANSI colors
 * Clustal alignment input format (`-f clustal`)
+* Wishlist document for future enhancements
 
 ### Changed
 
