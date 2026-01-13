@@ -13,6 +13,7 @@ use log::info;
 
 use crate::alignment::Alignment;
 use crate::app::{App, EmbossConfig, SearchColorConfig};
+use crate::seq::clustal::read_clustal_file;
 use crate::seq::fasta::read_fasta_file;
 use crate::seq::stockholm::read_stockholm_file;
 use crate::ui::{key_handling::handle_key_press, render::render_ui, UI};
@@ -48,7 +49,7 @@ struct Cli {
 
     /// Sequence file format
     #[arg(short, long = "format", default_value_t = SeqFileFormat::FastA,
-        help = "Sequence file format [fasta|stockholm] (or just f|s); default: fasta",
+        help = "Sequence file format [fasta|clustal|stockholm] (or just f|c|s); default: fasta",
         hide_default_value = true,
         hide_possible_values = true,
     )]
@@ -125,6 +126,9 @@ enum SeqFileFormat {
     #[clap(name = "fasta")]
     #[clap(alias = "f")]
     FastA,
+    #[clap(name = "clustal")]
+    #[clap(alias = "c")]
+    Clustal,
     #[clap(name = "stockholm")]
     #[clap(alias = "s")]
     Stockholm,
@@ -134,6 +138,7 @@ impl fmt::Display for SeqFileFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             SeqFileFormat::FastA => "fasta",
+            SeqFileFormat::Clustal => "clustal",
             SeqFileFormat::Stockholm => "stockholm",
         };
         write!(f, "{}", s)
@@ -164,6 +169,7 @@ pub fn run() -> Result<(), TermalError> {
     if let Some(seq_filename) = &cli.aln_fname {
         let seq_file = match cli.format {
             SeqFileFormat::FastA => read_fasta_file(seq_filename)?,
+            SeqFileFormat::Clustal => read_clustal_file(seq_filename)?,
             SeqFileFormat::Stockholm => read_stockholm_file(seq_filename)?,
         };
         let alignment = Alignment::from_file(seq_file);
