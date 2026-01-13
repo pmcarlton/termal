@@ -6,9 +6,11 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::{
     line_editor::LineEditor,
     InputMode,
-    InputMode::{Command, Help, LabelSearch, Normal, PendingCount, Search, SearchList},
+    InputMode::{
+        Command, ConfirmReject, Help, LabelSearch, Normal, PendingCount, Search, SearchList,
+    },
     //SearchDirection,
-    {ZoomLevel, UI},
+    {RejectMode, ZoomLevel, UI},
 };
 use crate::app::SearchKind;
 
@@ -23,6 +25,7 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         Search { editor, kind } => handle_search(ui, key_event, editor, kind),
         Command { editor } => handle_command(ui, key_event, editor),
         SearchList { selected } => handle_search_list(ui, key_event, selected),
+        ConfirmReject { mode } => handle_confirm_reject(ui, key_event, mode),
     };
     done
 }
@@ -210,6 +213,21 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                     0
                 };
                 ui.input_mode = InputMode::SearchList { selected };
+            } else if cmd.trim() == "rc" {
+                ui.input_mode = InputMode::ConfirmReject {
+                    mode: RejectMode::Current,
+                };
+                ui.app.info_msg("Reject current match? (y/n)");
+            } else if cmd.trim() == "ru" {
+                ui.input_mode = InputMode::ConfirmReject {
+                    mode: RejectMode::Unmatched,
+                };
+                ui.app.info_msg("Reject unmatched sequences? (y/n)");
+            } else if cmd.trim() == "rm" {
+                ui.input_mode = InputMode::ConfirmReject {
+                    mode: RejectMode::Matched,
+                };
+                ui.app.info_msg("Reject matched sequences? (y/n)");
             } else {
                 ui.app.warning_msg(format!("Unknown command: {}", cmd));
             }
@@ -310,6 +328,72 @@ fn handle_search_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {
         }
         _ => {}
     }
+}
+
+fn handle_confirm_reject(ui: &mut UI, key_event: KeyEvent, mode: RejectMode) {
+    match key_event.code {
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+            perform_reject(ui, mode);
+        }
+        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+            ui.app.info_msg("Reject canceled");
+        }
+        _ => {}
+    }
+}
+
+fn perform_reject(ui: &mut UI, mode: RejectMode) {
+    let out_path = ui.app.rejected_path();
+    let ranks = match mode {
+        RejectMode::Current => ui.app.current_seq_match().map(|m| vec![m.seq_index]),
+        RejectMode::Matched => ui.app.seq_search_spans().map(|spans| {
+            spans
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, spans)| (!spans.is_empty()).then_some(idx))
+                .collect::<Vec<usize>>()
+        }),
+        RejectMode::Unmatched => ui.app.seq_search_spans().map(|spans| {
+            spans
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, spans)| spans.is_empty().then_some(idx))
+                .collect::<Vec<usize>>()
+        }),
+    };
+    let Some(ranks) = ranks else {
+        if matches!(mode, RejectMode::Current) {
+            if ui.app.seq_search_spans().is_some() {
+                ui.app.warning_msg("No current match");
+            } else {
+                ui.app.warning_msg("No current sequence search");
+            }
+        } else {
+            ui.app.warning_msg("No current sequence search");
+        }
+        return;
+    };
+    if ranks.is_empty() {
+        ui.app.warning_msg("No sequences to reject");
+        return;
+    }
+    let mut removed = ui.app.remove_sequences(&ranks);
+    removed.reverse();
+    for (header, seq) in &removed {
+        if let Err(e) = ui.app.append_sequence_fasta(&out_path, header, seq) {
+            ui.app.error_msg(format!("Write failed: {}", e));
+            return;
+        }
+    }
+    ui.app.info_msg(format!(
+        "Rejected {} -> {}",
+        removed.len(),
+        out_path.display()
+    ));
 }
 
 fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) {

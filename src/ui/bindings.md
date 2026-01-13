@@ -37,6 +37,9 @@ Esc          : cancel search
 :s<Ret>      : open Search List panel (a=add, c=current, d=delete, space=toggle, 1-9=select)
 P            : save current search and clear its highlights
 W            : write currently shown alignment to filtered<file>
+:rc<Ret>     : reject current match (y/n to confirm)
+:ru<Ret>     : reject unmatched sequences (y/n to confirm)
+:rm<Ret>     : reject matched sequences (y/n to confirm)
 
 ## Adjusting the Panes
 

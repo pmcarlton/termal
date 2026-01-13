@@ -33,7 +33,7 @@ const DEFAULT_CURRENT_SEARCH_COLOR: SearchColor = (80, 80, 80);
 const DEFAULT_MIN_COMPONENT: u8 = 100;
 const DEFAULT_GAP_DIM_FACTOR: f32 = 0.5;
 const DEFAULT_LUMINANCE_THRESHOLD: f32 = 0.55;
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SeqOrdering {
     SourceFile,
     MetricIncr,
@@ -437,37 +437,13 @@ impl App {
 
     pub fn regex_search_labels(&mut self, pattern: &str) {
         // self.debug_msg("Regex search");
-        let try_re = RegexBuilder::new(pattern).case_insensitive(true).build();
-        match try_re {
-            Ok(re) => {
-                // actually numbers of matching lines, but a bit longish
-                let matches: Vec<usize> = self
-                    .alignment
-                    .headers
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, line)| re.is_match(line).then_some(i))
-                    .collect();
-
-                // Start with all false, and flip to true only for matching lines
-                let mut match_linenum_vec: Vec<bool> = vec![false; self.alignment.num_seq()];
-                for i in &matches {
-                    match_linenum_vec[*i] = true;
-                }
-
-                self.search_state = Some(SearchState {
-                    pattern: String::from(pattern),
-                    regex: re,
-                    match_linenums: matches,
-                    current: 0,
-                    hdr_match_status: match_linenum_vec,
-                });
-            }
+        match compute_label_search_state(&self.alignment.headers, pattern) {
+            Ok(state) => self.search_state = Some(state),
             Err(e) => {
                 self.error_msg(format!("Malformed regex {}.", e));
                 self.search_state = None;
             }
-        }
+        };
     }
 
     pub fn current_label_match_screenlinenum(&self) -> Option<usize> {
@@ -686,12 +662,102 @@ impl App {
     }
 
     pub fn remove_sequence(&mut self, rank: usize) -> Option<(String, String)> {
-        let removed = self.alignment.remove_seq(rank)?;
-        self.search_state = None;
-        self.seq_search_state = None;
+        let mut removed = self.remove_sequences(&[rank]);
+        removed.pop()
+    }
+
+    pub fn remove_sequences(&mut self, ranks: &[usize]) -> Vec<(String, String)> {
+        if ranks.is_empty() {
+            return Vec::new();
+        }
+        let current_label_header = self
+            .current_label_match_rank()
+            .and_then(|rank| self.alignment.headers.get(rank))
+            .cloned();
+        let current_seq_match = self.seq_search_state.as_ref().and_then(|state| {
+            let match_entry = state.matches.get(state.current_match).copied();
+            let header = match_entry.and_then(|m| self.alignment.headers.get(m.seq_index).cloned());
+            let span = match_entry.map(|m| (m.start, m.end));
+            header.zip(span)
+        });
+        let seq_search_kind = self.seq_search_state.as_ref().map(|state| state.kind);
+        let seq_search_pattern = self
+            .seq_search_state
+            .as_ref()
+            .map(|state| state.pattern.clone());
+        let label_search_pattern = self
+            .search_state
+            .as_ref()
+            .map(|state| state.pattern.clone());
+
+        let mut removed: Vec<(String, String)> = Vec::new();
+        let mut sorted: Vec<usize> = ranks.to_vec();
+        sorted.sort_unstable_by(|a, b| b.cmp(a));
+        for rank in sorted {
+            if let Some(item) = self.alignment.remove_seq(rank) {
+                removed.push(item);
+            }
+        }
+
+        if let Some(pattern) = label_search_pattern {
+            match compute_label_search_state(&self.alignment.headers, &pattern) {
+                Ok(mut state) => {
+                    if let Some(target) = current_label_header {
+                        if let Some(pos) = state
+                            .match_linenums
+                            .iter()
+                            .position(|&idx| self.alignment.headers.get(idx) == Some(&target))
+                        {
+                            state.current = pos;
+                        }
+                    }
+                    self.search_state = Some(state);
+                }
+                Err(e) => {
+                    self.error_msg(format!("Malformed regex {}.", e));
+                    self.search_state = None;
+                }
+            }
+        }
+
+        if let (Some(kind), Some(pattern)) = (seq_search_kind, seq_search_pattern) {
+            let state = match kind {
+                SearchKind::Regex => {
+                    compute_seq_search_state(&self.alignment.sequences, &pattern, kind)
+                        .map_err(|e| TermalError::Format(format!("Malformed regex {}.", e)))
+                }
+                SearchKind::Emboss => compute_emboss_search_state(
+                    &self.alignment.headers,
+                    &self.alignment.sequences,
+                    &pattern,
+                    self.emboss_bin_dir.as_deref(),
+                ),
+            };
+            match state {
+                Ok(mut state) => {
+                    if let Some((header, (start, end))) = current_seq_match {
+                        if let Some(seq_index) =
+                            self.alignment.headers.iter().position(|h| h == &header)
+                        {
+                            if let Some(pos) = state.matches.iter().position(|m| {
+                                m.seq_index == seq_index && m.start == start && m.end == end
+                            }) {
+                                state.current_match = pos;
+                            }
+                        }
+                    }
+                    self.seq_search_state = Some(state);
+                }
+                Err(e) => {
+                    self.error_msg(format!("Search failed: {}", e));
+                    self.seq_search_state = None;
+                }
+            }
+        }
+
         self.refresh_saved_searches();
         self.recompute_ordering();
-        Some(removed)
+        removed
     }
 
     pub fn write_alignment_fasta(&self, path: &Path) -> Result<(), TermalError> {
@@ -960,6 +1026,31 @@ fn compute_seq_search_state(
     })
 }
 
+fn compute_label_search_state(
+    headers: &[String],
+    pattern: &str,
+) -> Result<SearchState, regex::Error> {
+    let re = RegexBuilder::new(pattern).case_insensitive(true).build()?;
+    let matches: Vec<usize> = headers
+        .iter()
+        .enumerate()
+        .filter_map(|(i, line)| re.is_match(line).then_some(i))
+        .collect();
+
+    let mut match_linenum_vec: Vec<bool> = vec![false; headers.len()];
+    for i in &matches {
+        match_linenum_vec[*i] = true;
+    }
+
+    Ok(SearchState {
+        pattern: String::from(pattern),
+        regex: re,
+        match_linenums: matches,
+        current: 0,
+        hdr_match_status: match_linenum_vec,
+    })
+}
+
 fn parse_color_value(value: &Value) -> Result<SearchColor, TermalError> {
     match value {
         Value::String(s) => {
@@ -1173,7 +1264,7 @@ mod tests {
 
     use crate::{
         alignment::Alignment,
-        app::{order, App, SeqMatch},
+        app::{order, App, SeqMatch, SeqOrdering},
     };
 
     #[test]
@@ -1376,6 +1467,22 @@ mod tests {
         app.next_ordering_criterion();
         app.next_ordering_criterion();
         assert_eq!(app.ordering, vec![0, 2, 1, 3]);
+    }
+
+    #[test]
+    fn test_remove_sequences_preserves_search_state() {
+        let hdrs = vec![String::from("R1"), String::from("R2"), String::from("R3")];
+        let seqs = vec![String::from("AA"), String::from("BB"), String::from("AA")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.regex_search_sequences("AA");
+        app.next_ordering_criterion();
+        app.next_ordering_criterion();
+        app.next_ordering_criterion();
+        app.remove_sequences(&[1]);
+        assert_eq!(app.get_seq_ordering(), SeqOrdering::SearchMatch);
+        assert_eq!(app.current_seq_search_pattern(), Some("AA"));
+        assert_eq!(app.seq_search_spans().unwrap().len(), 2);
     }
 
     #[test]

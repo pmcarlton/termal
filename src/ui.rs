@@ -73,7 +73,17 @@ enum InputMode {
     SearchList {
         selected: usize,
     },
+    ConfirmReject {
+        mode: RejectMode,
+    },
     // ExCommand { buffer: String },
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum RejectMode {
+    Current,
+    Unmatched,
+    Matched,
 }
 
 #[derive(Clone, Copy, PartialEq)]
