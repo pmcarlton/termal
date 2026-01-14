@@ -7,7 +7,8 @@ use super::{
     line_editor::LineEditor,
     InputMode,
     InputMode::{
-        Command, ConfirmReject, Help, LabelSearch, Normal, PendingCount, Search, SearchList,
+        Command, ConfirmOverwrite, ConfirmReject, ExportSvg, Help, LabelSearch, Normal,
+        PendingCount, Search, SearchList,
     },
     //SearchDirection,
     {RejectMode, ZoomLevel, UI},
@@ -24,6 +25,8 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         LabelSearch { pattern } => handle_label_search(ui, key_event, &pattern),
         Search { editor, kind } => handle_search(ui, key_event, editor, kind),
         Command { editor } => handle_command(ui, key_event, editor),
+        ExportSvg { editor } => handle_export_svg(ui, key_event, editor),
+        ConfirmOverwrite { editor, path } => handle_confirm_overwrite(ui, key_event, editor, path),
         SearchList { selected } => handle_search_list(ui, key_event, selected),
         ConfirmReject { mode } => handle_confirm_reject(ui, key_event, mode),
     };
@@ -236,6 +239,15 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                     0
                 };
                 ui.input_mode = InputMode::SearchList { selected };
+            } else if cmd.trim() == "es" {
+                let default_path = format!("{}.svg", ui.app.filename);
+                let mut editor = LineEditor::new();
+                for c in default_path.chars() {
+                    editor.insert_char(c);
+                }
+                ui.input_mode = InputMode::ExportSvg { editor };
+                ui.app
+                    .argument_msg(String::from(":es "), ui.export_svg_text());
             } else if cmd.trim() == "rc" {
                 ui.input_mode = InputMode::ConfirmReject {
                     mode: RejectMode::Current,
@@ -348,6 +360,80 @@ fn handle_search_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {
             if idx < ui.app.saved_searches().len() {
                 ui.input_mode = InputMode::SearchList { selected: idx };
             }
+        }
+        _ => {}
+    }
+}
+
+fn handle_export_svg(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+        }
+        KeyCode::Enter => {
+            let path = editor.text();
+            if path.trim().is_empty() {
+                ui.input_mode = InputMode::ExportSvg { editor };
+                ui.app.warning_msg("Export path cannot be empty");
+                return;
+            }
+            if std::path::Path::new(&path).exists() {
+                ui.input_mode = InputMode::ConfirmOverwrite { editor, path };
+                ui.app.info_msg("File exists. Overwrite? (y/n)");
+            } else {
+                match ui.export_svg(std::path::Path::new(&path)) {
+                    Ok(_) => ui.app.info_msg(format!("Exported SVG -> {}", path)),
+                    Err(e) => ui.app.error_msg(format!("Export failed: {}", e)),
+                }
+                ui.input_mode = InputMode::Normal;
+            }
+        }
+        KeyCode::Char(c) if c.is_ascii_graphic() || c == ' ' => {
+            editor.insert_char(c);
+            ui.input_mode = InputMode::ExportSvg { editor };
+            ui.app
+                .argument_msg(String::from(":es "), ui.export_svg_text());
+        }
+        KeyCode::Backspace => {
+            editor.backspace();
+            ui.input_mode = InputMode::ExportSvg { editor };
+            ui.app
+                .argument_msg(String::from(":es "), ui.export_svg_text());
+        }
+        KeyCode::Left => {
+            editor.move_left();
+            ui.input_mode = InputMode::ExportSvg { editor };
+        }
+        KeyCode::Right => {
+            editor.move_right();
+            ui.input_mode = InputMode::ExportSvg { editor };
+        }
+        KeyCode::Home => {
+            editor.move_home();
+            ui.input_mode = InputMode::ExportSvg { editor };
+        }
+        KeyCode::End => {
+            editor.move_end();
+            ui.input_mode = InputMode::ExportSvg { editor };
+        }
+        _ => {}
+    }
+}
+
+fn handle_confirm_overwrite(ui: &mut UI, key_event: KeyEvent, editor: LineEditor, path: String) {
+    match key_event.code {
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            match ui.export_svg(std::path::Path::new(&path)) {
+                Ok(_) => ui.app.info_msg(format!("Exported SVG -> {}", path)),
+                Err(e) => ui.app.error_msg(format!("Export failed: {}", e)),
+            }
+            ui.input_mode = InputMode::Normal;
+        }
+        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+            ui.input_mode = InputMode::ExportSvg { editor };
+            ui.app
+                .argument_msg(String::from(":es "), ui.export_svg_text());
         }
         _ => {}
     }

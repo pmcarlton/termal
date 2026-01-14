@@ -153,6 +153,7 @@ Extended commands (:)
 --------------------
 
 * :s<Ret>      : open Search List panel (a=add, c=current, d=delete, space=toggle, 1-9=select)
+* :es<Ret>     : export current view to SVG (prompts for path)
 * :rc<Ret>     : reject current match (y/n to confirm)
 * :ru<Ret>     : reject unmatched sequences (y/n to confirm)
 * :rm<Ret>     : reject matched sequences (y/n to confirm)

@@ -13,6 +13,7 @@
 * README caveat about terminal color schemes affecting ANSI colors
 * Clustal alignment input format (`-f clustal`)
 * Wishlist document for future enhancements
+* SVG export of the current view (`:es`)
 
 ### Changed
 

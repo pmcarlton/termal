@@ -9,11 +9,13 @@ mod line_editor;
 mod msg_theme;
 pub mod render;
 mod style;
+mod svg;
 mod zoombox;
 
 use std::{
     cmp::{max, min},
     fmt,
+    path::Path,
 };
 
 use bitflags::bitflags;
@@ -28,7 +30,10 @@ use self::{
     line_editor::LineEditor,
 };
 
-use crate::app::{App, SearchKind};
+use crate::{
+    app::{App, SearchKind},
+    errors::TermalError,
+};
 
 const V_SCROLLBAR_WIDTH: u16 = 1;
 const MIN_COLS_SHOWN: u16 = 1;
@@ -69,6 +74,13 @@ enum InputMode {
     },
     Command {
         editor: LineEditor,
+    },
+    ExportSvg {
+        editor: LineEditor,
+    },
+    ConfirmOverwrite {
+        editor: LineEditor,
+        path: String,
     },
     SearchList {
         selected: usize,
@@ -221,6 +233,14 @@ impl<'a> UI<'a> {
 
     pub fn take_exit_message(&mut self) -> Option<String> {
         self.exit_message.take()
+    }
+
+    pub fn export_svg(&mut self, path: &Path) -> Result<(), TermalError> {
+        svg::export_current_view(self, path)
+    }
+
+    pub fn frame_size(&self) -> Option<Size> {
+        self.frame_size
     }
 
     // ****************************************************************
@@ -589,6 +609,14 @@ impl<'a> UI<'a> {
     pub fn command_text(&self) -> String {
         match &self.input_mode {
             InputMode::Command { editor } => editor.text(),
+            _ => String::new(),
+        }
+    }
+
+    pub fn export_svg_text(&self) -> String {
+        match &self.input_mode {
+            InputMode::ExportSvg { editor } => editor.text(),
+            InputMode::ConfirmOverwrite { editor, .. } => editor.text(),
             _ => String::new(),
         }
     }
