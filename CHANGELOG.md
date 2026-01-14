@@ -18,8 +18,10 @@
 ### Changed
 
 * Status line now shows saved searches and the current search (including type R/E)
+* Saved searches in the status line are color-coded to match highlights
 * Current header match is highlighted with a red background; other header matches stay white
 * Current search highlight is dimmer; gap characters use half-intensity
+* SVG export renders highlighted sequence matches in bold text
 
 ### Fixed
 

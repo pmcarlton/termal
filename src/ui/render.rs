@@ -604,21 +604,29 @@ fn render_modeline(f: &mut Frame, last_content_line: u16, ui: &mut UI) {
     let base_msg = if ui.app.current_message().prefix.is_empty()
         && ui.app.current_message().message.is_empty()
     {
-        String::new()
+        None
     } else {
-        format!(
+        Some(format!(
             "{}{}",
             &*ui.app.current_message().prefix,
             &*ui.app.current_message().message
-        )
+        ))
     };
-    let search_msg = ui.search_status_line();
-    let combined = if base_msg.is_empty() {
-        search_msg
-    } else {
-        format!("{} | {}", base_msg, search_msg)
-    };
-    if combined.is_empty() {
+    let mut spans = vec![Span::raw(" ")];
+    if let Some(base) = base_msg {
+        spans.push(Span::styled(
+            base,
+            style_for(&ui.app.current_message().kind),
+        ));
+    }
+    let search_spans = ui.search_status_line_spans();
+    if !search_spans.is_empty() {
+        if spans.len() > 1 {
+            spans.push(Span::raw(" | "));
+        }
+        spans.extend(search_spans);
+    }
+    if spans.len() == 1 {
         return;
     }
 
@@ -628,11 +636,7 @@ fn render_modeline(f: &mut Frame, last_content_line: u16, ui: &mut UI) {
         width: f.area().width - (2 * BORDER_WIDTH),
         height: 1,
     };
-    // without '└ ', the modeline would start in the very bottom left.
-    let corner_span = Span::raw(" ");
-    let message_span = Span::styled(combined, style_for(&ui.app.current_message().kind));
-    let spacer_span = Span::raw(" ");
-    let modeline = Line::from(vec![corner_span, message_span, spacer_span]);
+    let modeline = Line::from(spans);
     f.render_widget(modeline, modeline_rect);
 }
 

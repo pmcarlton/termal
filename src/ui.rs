@@ -22,6 +22,7 @@ use bitflags::bitflags;
 
 use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
+use ratatui::text::Span;
 
 use self::{
     aln_widget::{SearchHighlight, SearchHighlightConfig},
@@ -669,26 +670,33 @@ impl<'a> UI<'a> {
         }
     }
 
-    pub fn search_status_line(&self) -> String {
-        let enabled: Vec<String> = self
+    pub fn search_status_line_spans(&self) -> Vec<Span<'static>> {
+        let mut spans: Vec<Span<'static>> = Vec::new();
+        spans.push(Span::raw("Saved: "));
+        let enabled: Vec<_> = self
             .app
             .saved_searches()
             .iter()
             .filter(|entry| entry.enabled)
-            .map(|entry| {
-                format!(
+            .collect();
+        if enabled.is_empty() {
+            spans.push(Span::raw("-"));
+        } else {
+            for (idx, entry) in enabled.iter().enumerate() {
+                if idx > 0 {
+                    spans.push(Span::raw(","));
+                }
+                let label = format!(
                     "{}:{}:{}",
                     entry.id,
                     Self::search_kind_label(entry.kind),
                     entry.name
-                )
-            })
-            .collect();
-        let saved = if enabled.is_empty() {
-            String::from("-")
-        } else {
-            enabled.join(",")
-        };
+                );
+                let color = Color::Rgb(entry.color.0, entry.color.1, entry.color.2);
+                spans.push(Span::styled(label, Style::default().fg(color)));
+            }
+        }
+        spans.push(Span::raw(" | Current: "));
         let current = match &self.input_mode {
             InputMode::Search { editor, kind } => {
                 format!("{}:{}", Self::search_kind_label(*kind), editor.text())
@@ -706,7 +714,8 @@ impl<'a> UI<'a> {
                 }
             }
         };
-        format!("Saved: {} | Current: {}", saved, current)
+        spans.push(Span::raw(current));
+        spans
     }
 
     pub fn toggle_video_mode(&mut self) {

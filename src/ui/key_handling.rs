@@ -246,8 +246,7 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                     editor.insert_char(c);
                 }
                 ui.input_mode = InputMode::ExportSvg { editor };
-                ui.app
-                    .argument_msg(String::from(":es "), ui.export_svg_text());
+                ui.app.argument_msg(String::new(), ui.export_svg_text());
             } else if cmd.trim() == "rc" {
                 ui.input_mode = InputMode::ConfirmReject {
                     mode: RejectMode::Current,
@@ -392,14 +391,12 @@ fn handle_export_svg(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
         KeyCode::Char(c) if c.is_ascii_graphic() || c == ' ' => {
             editor.insert_char(c);
             ui.input_mode = InputMode::ExportSvg { editor };
-            ui.app
-                .argument_msg(String::from(":es "), ui.export_svg_text());
+            ui.app.argument_msg(String::new(), ui.export_svg_text());
         }
         KeyCode::Backspace => {
             editor.backspace();
             ui.input_mode = InputMode::ExportSvg { editor };
-            ui.app
-                .argument_msg(String::from(":es "), ui.export_svg_text());
+            ui.app.argument_msg(String::new(), ui.export_svg_text());
         }
         KeyCode::Left => {
             editor.move_left();
@@ -432,8 +429,7 @@ fn handle_confirm_overwrite(ui: &mut UI, key_event: KeyEvent, editor: LineEditor
         }
         KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
             ui.input_mode = InputMode::ExportSvg { editor };
-            ui.app
-                .argument_msg(String::from(":es "), ui.export_svg_text());
+            ui.app.argument_msg(String::new(), ui.export_svg_text());
         }
         _ => {}
     }

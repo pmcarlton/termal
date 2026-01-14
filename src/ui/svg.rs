@@ -6,12 +6,18 @@ use std::{fs, path::Path};
 use ratatui::{
     backend::TestBackend,
     buffer::{Buffer, Cell},
+    layout::{Constraint, Direction, Layout},
     prelude::{Position, Rect, Terminal},
     style::Color,
     TerminalOptions, Viewport,
 };
 
-use crate::{errors::TermalError, ui::render::render_ui, ui::UI};
+use crate::{
+    errors::TermalError,
+    ui::{
+        render::render_ui, BottomPanePosition, BORDER_WIDTH, MIN_COLS_SHOWN, UI, V_SCROLLBAR_WIDTH,
+    },
+};
 
 const FONT_SIZE: u16 = 14;
 const CELL_WIDTH: u16 = 8;
@@ -29,12 +35,13 @@ pub fn export_current_view(ui: &mut UI, path: &Path) -> Result<(), TermalError> 
         .draw(|f| render_ui(f, ui))
         .map_err(|e| TermalError::Format(format!("SVG render error: {}", e)))?;
     let buffer = terminal.backend().buffer().clone();
-    let svg = buffer_to_svg(&buffer);
+    let seq_rect = sequence_pane_rect(ui, Rect::new(0, 0, size.width, size.height));
+    let svg = buffer_to_svg(&buffer, seq_rect);
     fs::write(path, svg)?;
     Ok(())
 }
 
-fn buffer_to_svg(buf: &Buffer) -> String {
+fn buffer_to_svg(buf: &Buffer, seq_rect: Rect) -> String {
     let area = buf.area;
     let width_px = area.width.saturating_mul(CELL_WIDTH) as u32;
     let height_px = area.height.saturating_mul(CELL_HEIGHT) as u32;
@@ -57,15 +64,17 @@ fn buffer_to_svg(buf: &Buffer) -> String {
             if ch == ' ' {
                 continue;
             }
-            let (r, g, b) = text_color(cell);
+            let (r, g, b, bold) = text_color(cell, seq_rect, x, y);
             let color = format!("#{:02x}{:02x}{:02x}", r, g, b);
             let x_px = (x * CELL_WIDTH) as u32;
             let y_px = (y * CELL_HEIGHT) as u32;
+            let weight = if bold { " font-weight=\"bold\"" } else { "" };
             out.push_str(&format!(
-                "<text x=\"{}\" y=\"{}\" fill=\"{}\">{}</text>\n",
+                "<text x=\"{}\" y=\"{}\" fill=\"{}\"{}>{}</text>\n",
                 x_px,
                 y_px,
                 color,
+                weight,
                 escape_svg_char(ch)
             ));
         }
@@ -75,13 +84,16 @@ fn buffer_to_svg(buf: &Buffer) -> String {
     out
 }
 
-fn text_color(cell: &Cell) -> (u8, u8, u8) {
-    if let Some((r, g, b)) = color_to_rgb(cell.bg) {
-        if !(r == 0 && g == 0 && b == 0) {
-            return (r, g, b);
-        }
+fn text_color(cell: &Cell, seq_rect: Rect, x: u16, y: u16) -> (u8, u8, u8, bool) {
+    let highlight = match color_to_rgb(cell.bg) {
+        Some((0, 0, 0)) => None,
+        other => other,
+    };
+    let bold = highlight.is_some() && is_within(seq_rect, x, y);
+    if let Some((r, g, b)) = highlight {
+        return (r, g, b, bold);
     }
-    (0, 0, 0)
+    (0, 0, 0, false)
 }
 
 fn color_to_rgb(color: Color) -> Option<(u8, u8, u8)> {
@@ -118,6 +130,55 @@ fn escape_svg_char(ch: char) -> String {
     }
 }
 
+fn is_within(rect: Rect, x: u16, y: u16) -> bool {
+    x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
+}
+
+fn max_num_seq(area: Rect, ui: &UI) -> u16 {
+    match ui.zoom_level {
+        super::ZoomLevel::ZoomedOut | super::ZoomLevel::ZoomedIn => ui.app.num_seq(),
+        super::ZoomLevel::ZoomedOutAR => {
+            let v_constraints = vec![Constraint::Fill(1), Constraint::Max(ui.bottom_pane_height)];
+            let top_chunk = Layout::new(Direction::Vertical, v_constraints).split(area)[0];
+            let aln_pane = Layout::new(
+                Direction::Horizontal,
+                vec![Constraint::Max(ui.left_pane_width), Constraint::Fill(1)],
+            )
+            .split(top_chunk)[1];
+
+            let v_ratio = (aln_pane.height - 2) as f64 / ui.app.num_seq() as f64;
+            let h_ratio = (aln_pane.width - 2) as f64 / ui.app.aln_len() as f64;
+            let ratio = h_ratio.min(v_ratio);
+
+            (ui.app.num_seq() as f64 * ratio).round() as u16
+        }
+    }
+}
+
+fn sequence_pane_rect(ui: &UI, area: Rect) -> Rect {
+    let mns = max_num_seq(area, ui);
+    let constraints: Vec<Constraint> = match ui.bottom_pane_position {
+        BottomPanePosition::Adjacent => vec![
+            Constraint::Max(mns + 2),
+            Constraint::Max(ui.bottom_pane_height),
+        ],
+        BottomPanePosition::ScreenBottom => {
+            vec![Constraint::Fill(1), Constraint::Max(ui.bottom_pane_height)]
+        }
+    };
+    let v_panes = Layout::new(Direction::Vertical, constraints).split(area);
+    let min_seq_pane_width = V_SCROLLBAR_WIDTH + MIN_COLS_SHOWN + BORDER_WIDTH;
+    let upper_panes = Layout::new(
+        Direction::Horizontal,
+        vec![
+            Constraint::Max(ui.left_pane_width),
+            Constraint::Min(min_seq_pane_width),
+        ],
+    )
+    .split(v_panes[0]);
+    upper_panes[1]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,7 +191,18 @@ mod tests {
             .expect("buffer position")
             .set_char('A')
             .set_style(Style::default().bg(Color::Rgb(10, 20, 30)));
-        let svg = buffer_to_svg(&buf);
+        let svg = buffer_to_svg(&buf, Rect::new(0, 0, 1, 1));
         assert!(svg.contains("fill=\"#0a141e\""));
+    }
+
+    #[test]
+    fn svg_bolds_sequence_highlights() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 1, 1));
+        buf.cell_mut(Position::from((0, 0)))
+            .expect("buffer position")
+            .set_char('A')
+            .set_style(Style::default().bg(Color::Rgb(10, 20, 30)));
+        let svg = buffer_to_svg(&buf, Rect::new(0, 0, 1, 1));
+        assert!(svg.contains("font-weight=\"bold\""));
     }
 }
