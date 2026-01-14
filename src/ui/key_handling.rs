@@ -379,10 +379,10 @@ fn handle_export_svg(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
             }
             if std::path::Path::new(&path).exists() {
                 ui.input_mode = InputMode::ConfirmOverwrite { editor, path };
-                ui.app.info_msg("File exists. Overwrite? (y/n)");
+                ui.app.argument_msg(String::new(), ui.export_svg_text());
             } else {
                 match ui.export_svg(std::path::Path::new(&path)) {
-                    Ok(_) => ui.app.info_msg(format!("Exported SVG -> {}", path)),
+                    Ok(_) => ui.app.info_msg(path),
                     Err(e) => ui.app.error_msg(format!("Export failed: {}", e)),
                 }
                 ui.input_mode = InputMode::Normal;
@@ -422,7 +422,7 @@ fn handle_confirm_overwrite(ui: &mut UI, key_event: KeyEvent, editor: LineEditor
     match key_event.code {
         KeyCode::Char('y') | KeyCode::Char('Y') => {
             match ui.export_svg(std::path::Path::new(&path)) {
-                Ok(_) => ui.app.info_msg(format!("Exported SVG -> {}", path)),
+                Ok(_) => ui.app.info_msg(path),
                 Err(e) => ui.app.error_msg(format!("Export failed: {}", e)),
             }
             ui.input_mode = InputMode::Normal;

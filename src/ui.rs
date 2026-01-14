@@ -693,7 +693,7 @@ impl<'a> UI<'a> {
                     entry.name
                 );
                 let color = Color::Rgb(entry.color.0, entry.color.1, entry.color.2);
-                spans.push(Span::styled(label, Style::default().fg(color)));
+                spans.push(Span::styled(label, Style::default().bg(color)));
             }
         }
         spans.push(Span::raw(" | Current: "));
