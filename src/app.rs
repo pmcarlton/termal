@@ -1033,11 +1033,28 @@ impl App {
 }
 
 fn normalize_tree_label(label: &str) -> String {
-    label
-        .trim()
+    let trimmed = label.trim();
+    let stripped = strip_numeric_prefix(trimmed);
+    stripped
         .chars()
-        .map(|c| if c.is_whitespace() { '_' } else { c })
+        .map(|c| match c {
+            c if c.is_whitespace() => '_',
+            '.' => '_',
+            _ => c,
+        })
         .collect()
+}
+
+fn strip_numeric_prefix(label: &str) -> &str {
+    let bytes = label.as_bytes();
+    let mut idx = 0;
+    while idx < bytes.len() && bytes[idx].is_ascii_digit() {
+        idx += 1;
+    }
+    if idx < bytes.len() && bytes[idx] == b'_' {
+        return &label[idx + 1..];
+    }
+    label
 }
 
 fn insert_unique(
@@ -1687,6 +1704,20 @@ mod tests {
         assert_eq!(
             app.user_ordering.unwrap(),
             vec![String::from("1 CELEG-F08G5 1a"), String::from("seq2")]
+        );
+    }
+
+    #[test]
+    fn test_tree_ordering_strips_numeric_prefix_and_dots() {
+        let hdrs = vec![String::from("CELEG-F08G5.1a"), String::from("seq2")];
+        let seqs = vec![String::from("AA"), String::from("AA")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.set_user_ordering(vec![String::from("1_CELEG-F08G5_1a"), String::from("seq2")])
+            .unwrap();
+        assert_eq!(
+            app.user_ordering.unwrap(),
+            vec![String::from("CELEG-F08G5.1a"), String::from("seq2")]
         );
     }
 
