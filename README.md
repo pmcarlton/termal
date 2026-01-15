@@ -1,6 +1,6 @@
 # termal
 
-## (a fork of the originsl sib-swiss/termal that I am modifying for my own use cases)
+## (a fork of the original sib-swiss/termal that I am modifying for my own use cases)
 
 Tired of using vim as an MSA viewer, and also of fiddling with giant programs like Jalview, I knew someone would have made a TUI for this, and I found `termal` to be the best. I've made some modifications for highlighting motifs, and reordering and filtering individual sequences.
 
