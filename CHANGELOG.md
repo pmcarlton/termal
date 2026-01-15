@@ -31,6 +31,7 @@
 * Rejecting all sequences now exits cleanly with a message
 * SVG export overwrite confirmation now restores the prompt flow
 * MAFFT tree leaf names now map to headers with spaces/dots normalized and numeric prefixes stripped
+* Tree panel uses box-drawing characters with branches reaching leaf names
 
 ## [1.3.0]
 

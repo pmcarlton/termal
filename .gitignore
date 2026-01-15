@@ -22,3 +22,5 @@ termal*.zip
 *.jl
 dist
 *~
+*.aln
+*.tree

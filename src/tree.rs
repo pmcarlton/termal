@@ -34,15 +34,22 @@ pub fn tree_lines_and_order(root: &TreeNode) -> Result<(Vec<String>, Vec<String>
 fn build_lines(node: &TreeNode, prefix: String, lines: &mut Vec<String>, order: &mut Vec<String>) {
     if node.children.is_empty() {
         let name = node.name.clone().unwrap_or_default();
-        lines.push(format!("{}+-", prefix));
+        lines.push(format!("{}└─{}", prefix, name));
         order.push(name);
         return;
     }
     let count = node.children.len();
     for (idx, child) in node.children.iter().enumerate() {
         let last = idx + 1 == count;
-        let child_prefix = format!("{}{}", prefix, if last { "  " } else { "| " });
-        build_lines(child, child_prefix, lines, order);
+        let branch = if last { "└─" } else { "├─" };
+        let child_prefix = format!("{}{}", prefix, if last { "  " } else { "│ " });
+        if child.children.is_empty() {
+            let name = child.name.clone().unwrap_or_default();
+            lines.push(format!("{}{}{}", prefix, branch, name));
+            order.push(name);
+        } else {
+            build_lines(child, child_prefix, lines, order);
+        }
     }
 }
 
