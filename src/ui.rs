@@ -32,7 +32,7 @@ use self::{
 };
 
 use crate::{
-    app::{App, SearchKind},
+    app::{App, SearchKind, SeqOrdering},
     errors::TermalError,
 };
 
@@ -240,6 +240,14 @@ impl<'a> UI<'a> {
 
     pub fn show_tree_panel(&mut self, show: bool) {
         self.show_tree_panel = show;
+    }
+
+    pub fn sync_tree_panel_with_ordering(&mut self) {
+        if !self.app.has_tree_panel() {
+            self.show_tree_panel = false;
+            return;
+        }
+        self.show_tree_panel = matches!(self.app.get_seq_ordering(), SeqOrdering::User);
     }
 
     pub fn toggle_tree_panel(&mut self) {

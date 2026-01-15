@@ -80,6 +80,15 @@ impl fmt::Display for Metric {
     }
 }
 
+impl Metric {
+    fn short_label(&self) -> &'static str {
+        match self {
+            PctIdWrtConsensus => "%id",
+            SeqLen => "length",
+        }
+    }
+}
+
 pub struct SearchState {
     // These will eventually be used, when we highlight the actual matching parts of the label, and
     // to allow more informative messages like "pattern 'xyz' has no match".
@@ -437,6 +446,16 @@ impl App {
 
     pub fn get_seq_ordering(&self) -> SeqOrdering {
         self.ordering_criterion
+    }
+
+    pub fn ordering_status_label(&self) -> String {
+        match self.ordering_criterion {
+            SourceFile => String::from("o:original"),
+            SearchMatch => String::from("o:match"),
+            User => String::from("o:tree"),
+            MetricIncr => format!("o:{}↑", self.metric.short_label()),
+            MetricDecr => format!("o:{}↓", self.metric.short_label()),
+        }
     }
 
     pub fn get_metric(&self) -> Metric {
@@ -1536,6 +1555,24 @@ mod tests {
         app.next_ordering_criterion();
         assert_eq!(app.ordering, vec![0, 3, 2, 4, 1]);
         assert_eq!(app.reverse_ordering, vec![0, 4, 2, 1, 3]);
+    }
+
+    #[test]
+    fn test_ordering_status_label() {
+        let hdrs = vec![String::from("R1"), String::from("R2")];
+        let seqs = vec![String::from("AA"), String::from("AA")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        assert_eq!(app.ordering_status_label(), "o:original");
+        app.next_ordering_criterion();
+        assert_eq!(app.ordering_status_label(), "o:%id↑");
+        app.next_ordering_criterion();
+        assert_eq!(app.ordering_status_label(), "o:%id↓");
+        app.next_ordering_criterion();
+        assert_eq!(app.ordering_status_label(), "o:match");
+        app.set_user_ordering(vec![String::from("R1"), String::from("R2")])
+            .unwrap();
+        assert_eq!(app.ordering_status_label(), "o:tree");
     }
 
     #[test]

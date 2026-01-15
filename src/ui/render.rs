@@ -666,6 +666,11 @@ fn render_modeline(f: &mut Frame, last_content_line: u16, ui: &mut UI) {
         }
         spans.extend(search_spans);
     }
+    let ordering_label = ui.app.ordering_status_label();
+    if spans.len() > 1 {
+        spans.push(Span::raw(" | "));
+    }
+    spans.push(Span::raw(ordering_label));
     if spans.len() == 1 {
         return;
     }
@@ -741,6 +746,7 @@ fn render_search_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
 }
 
 pub fn render_ui(f: &mut Frame, ui: &mut UI) {
+    ui.sync_tree_panel_with_ordering();
     let layout_panes = make_layout(f, ui);
 
     /*

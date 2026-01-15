@@ -19,10 +19,12 @@
 ### Changed
 
 * Status line now shows saved searches and the current search (including type R/E)
+* Status line now shows a short ordering mode label (o:original, o:match, o:tree, o:length/%id)
 * Saved searches in the status line are color-coded to match highlights (background)
 * Current header match is highlighted with a red background; other header matches stay white
 * Current search highlight is dimmer; gap characters use half-intensity
 * SVG export renders highlighted sequence matches in bold text
+* Tree panel auto-hides for non-tree ordering modes and auto-shows for tree order
 
 ### Fixed
 

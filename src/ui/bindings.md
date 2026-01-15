@@ -2,7 +2,7 @@
 
 Run `termal -b` to see this message if it doesn't fit on screen.
 
-Arguments (counts, search patterns) and match index are shown in the modeline.
+Arguments (counts, search patterns), match index, and ordering mode are shown in the modeline.
 
 Formats: use `-f` with `fasta`, `clustal`, or `stockholm`.
 
@@ -71,3 +71,5 @@ Monochrome direct video is the default.
 
 o,O: next/previous ordering
 t,T: next/previous metric
+
+Ordering modes are shown as o:original, o:match, o:tree, or o:length/%id.
