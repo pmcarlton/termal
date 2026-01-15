@@ -21,3 +21,4 @@ termal*.zip
 *.zip
 *.jl
 dist
+*~
