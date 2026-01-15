@@ -872,7 +872,7 @@ impl App {
         self.tree_panel_width = self
             .tree_lines
             .iter()
-            .map(|line| line.len())
+            .map(|line| line.chars().count())
             .max()
             .unwrap_or(0)
             .min(u16::MAX as usize) as u16;
