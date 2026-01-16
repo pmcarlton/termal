@@ -4,7 +4,7 @@
 
 ### Added
 
-* Search mode with a line editor for sequence regex searches (`/`) and EMBOSS fuzzy searches (`\\`)
+* Search mode with a line editor for sequence regex searches (`/`) and EMBOSS (fuzzpro/fuzznuc) fuzzy searches (`\`)
 * Search registry with multiple saved searches, enable/disable toggles, and a Search List panel (`:s`)
 * EMBOSS fuzzy search integration (fuzzpro/fuzznuc) with GFF parsing and `tools.config`
 * Optional leading mismatch count for EMBOSS patterns (e.g., `2 PATTERN` -> `-pmis 2`)
@@ -17,7 +17,7 @@
 * MAFFT realignment with guide tree output and tree panel (`:ra`)
 * Undo last rejection (`:ur`) with reject-file rollback
 * Separate header/sequence match navigation (`n/p` vs `[`/`]`) and numbered selection/rejection (`:sn`, `:rn`)
-* Session save/load with .trml files (`:ss`, `:sl`)
+* Session save/load with JSON .trml files (`:ss`, `:sl`)
 * Notes editor (`@`) stored inside session files
 
 ### Changed
@@ -44,6 +44,11 @@
 * SVG export overwrite confirmation now restores the prompt flow
 * MAFFT tree leaf names now map to headers with spaces/dots normalized and numeric prefixes stripped
 * Tree panel uses box-drawing characters with horizontal branches extended to leaf column
+
+---
+above: pmcarlton changes
+---
+
 
 ## [1.3.0]
 
