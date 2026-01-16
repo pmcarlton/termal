@@ -267,6 +267,14 @@ impl<'a> UI<'a> {
         self.app.num_seq()
     }
 
+    pub fn select_label_by_rank(&mut self, rank: usize) -> Result<(), TermalError> {
+        self.app.select_label_by_rank(rank)?;
+        if let Some(line) = self.app.current_label_match_screenlinenum() {
+            self.jump_to_line(line as u16);
+        }
+        Ok(())
+    }
+
     pub fn export_svg(&mut self, path: &Path) -> Result<(), TermalError> {
         svg::export_current_view(self, path)
     }

@@ -27,7 +27,8 @@ z,Z: next/previous zoom mode
 ## Searching (headers)
 
 "regexp<Ret> : search sequence headers
-[count]n,p   : next / previous match
+[count]n,p   : next / previous header match
+[count][,]   : next / previous sequence match
 !            : reject current header match (remove from view, append to rejected<file>)
 Esc          : cancel search
 
@@ -48,6 +49,8 @@ P            : save current search and clear its highlights
 :ru<Ret>     : reject unmatched sequences (y/n to confirm)
 :rm<Ret>     : reject matched sequences (y/n to confirm)
 :ur<Ret>     : undo last rejection (restores file and sequences)
+:sn<Ret>     : select header by displayed number (e.g., :sn 31)
+:rn<Ret>     : reject by displayed number(s) (e.g., :rn 1,4,6-8)
 
 ## Filtering
 

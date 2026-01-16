@@ -499,6 +499,24 @@ impl App {
         };
     }
 
+    pub fn select_label_by_rank(&mut self, rank: usize) -> Result<(), TermalError> {
+        if rank >= self.alignment.headers.len() {
+            return Err(TermalError::Format(String::from(
+                "Sequence number out of range",
+            )));
+        }
+        let header = self.alignment.headers[rank].clone();
+        let pattern = format!("^{}$", regex::escape(&header));
+        match compute_label_search_state(&self.alignment.headers, &pattern) {
+            Ok(mut state) => {
+                state.current = 0;
+                self.search_state = Some(state);
+                Ok(())
+            }
+            Err(e) => Err(TermalError::Format(format!("Malformed regex {}.", e))),
+        }
+    }
+
     pub fn current_label_match_screenlinenum(&self) -> Option<usize> {
         if let Some(state) = &self.search_state {
             if state.match_linenums.len() > 0 {
@@ -1760,6 +1778,17 @@ mod tests {
         app.set_user_ordering(vec![String::from("R1"), String::from("R2")])
             .unwrap();
         assert_eq!(app.ordering_status_label(), "o:tree");
+    }
+
+    #[test]
+    fn test_select_label_by_rank() {
+        let hdrs = vec![String::from("R1"), String::from("R2"), String::from("R3")];
+        let seqs = vec![String::from("AA"), String::from("BB"), String::from("CC")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.select_label_by_rank(1).unwrap();
+        assert_eq!(app.current_label_match_rank(), Some(1));
+        assert!(app.is_label_search_match(1));
     }
 
     #[test]

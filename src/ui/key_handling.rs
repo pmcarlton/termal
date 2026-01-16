@@ -14,6 +14,7 @@ use super::{
     {RejectMode, ZoomLevel, UI},
 };
 use crate::app::SearchKind;
+use std::collections::HashSet;
 
 pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
     let mut done = false;
@@ -107,6 +108,65 @@ fn handle_help_key(ui: &mut UI, key_event: KeyEvent) {
             ui.help_scroll_by(ui.help_page_height() as isize);
         }
         _ => {}
+    }
+}
+
+fn parse_rank_list(arg: &str) -> Result<Vec<usize>, String> {
+    let mut ranks: HashSet<usize> = HashSet::new();
+    for part in arg.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        if let Some((start_str, end_str)) = part.split_once('-') {
+            let start = start_str
+                .trim()
+                .parse::<usize>()
+                .map_err(|_| format!("Invalid number: {}", start_str.trim()))?;
+            let end = end_str
+                .trim()
+                .parse::<usize>()
+                .map_err(|_| format!("Invalid number: {}", end_str.trim()))?;
+            if start == 0 || end == 0 {
+                return Err(String::from("Sequence numbers start at 1"));
+            }
+            if start > end {
+                return Err(format!("Invalid range: {}-{}", start, end));
+            }
+            for num in start..=end {
+                ranks.insert(num - 1);
+            }
+        } else {
+            let num = part
+                .parse::<usize>()
+                .map_err(|_| format!("Invalid number: {}", part))?;
+            if num == 0 {
+                return Err(String::from("Sequence numbers start at 1"));
+            }
+            ranks.insert(num - 1);
+        }
+    }
+    if ranks.is_empty() {
+        return Err(String::from("No sequence numbers provided"));
+    }
+    let mut result: Vec<usize> = ranks.into_iter().collect();
+    result.sort_unstable();
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_rank_list;
+
+    #[test]
+    fn parse_rank_list_single_and_range() {
+        let result = parse_rank_list("1,4,6-8").unwrap();
+        assert_eq!(result, vec![0, 3, 5, 6, 7]);
+    }
+
+    #[test]
+    fn parse_rank_list_rejects_zero() {
+        assert!(parse_rank_list("0").is_err());
     }
 }
 
@@ -287,6 +347,45 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                         }
                     }
                     Err(e) => ui.app.error_msg(format!("Undo failed: {}", e)),
+                }
+            } else if cmd.trim_start().starts_with("sn") {
+                let arg = cmd.trim_start()[2..].trim();
+                match arg.parse::<usize>() {
+                    Ok(num) if num > 0 => {
+                        let rank = num - 1;
+                        match ui.select_label_by_rank(rank) {
+                            Ok(()) => ui.app.info_msg(format!("Selected #{}", num)),
+                            Err(e) => ui.app.error_msg(format!("Select failed: {}", e)),
+                        }
+                    }
+                    _ => ui.app.warning_msg("Usage: :sn <number>"),
+                }
+            } else if cmd.trim_start().starts_with("rn") {
+                let arg = cmd.trim_start()[2..].trim();
+                match parse_rank_list(arg) {
+                    Ok(ranks) => {
+                        let out_path = ui.app.rejected_path();
+                        match ui.app.reject_sequences(&ranks, &out_path) {
+                            Ok(count) => {
+                                if count == 0 {
+                                    ui.app.warning_msg("No sequences to reject");
+                                } else {
+                                    ui.app.info_msg(format!(
+                                        "Rejected {} -> {}",
+                                        count,
+                                        out_path.display()
+                                    ));
+                                    if ui.app.alignment.num_seq() == 0 {
+                                        ui.set_exit_message(
+                                            "all sequences have been rejected, ending program",
+                                        );
+                                    }
+                                }
+                            }
+                            Err(e) => ui.app.error_msg(format!("Write failed: {}", e)),
+                        }
+                    }
+                    Err(msg) => ui.app.warning_msg(msg),
                 }
             } else {
                 ui.app.warning_msg(format!("Unknown command: {}", cmd));
@@ -667,20 +766,10 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('#') => ui.jump_to_pct_col(count as u16),
 
         // To search matches
-        KeyCode::Char('n') => {
-            if ui.app.has_seq_search() {
-                ui.jump_to_next_seq_match(count as i16);
-            } else {
-                ui.jump_to_next_lbl_match(count as i16);
-            }
-        }
-        KeyCode::Char('p') => {
-            if ui.app.has_seq_search() {
-                ui.jump_to_next_seq_match(-1 * count as i16);
-            } else {
-                ui.jump_to_next_lbl_match(-1 * count as i16);
-            }
-        }
+        KeyCode::Char('n') => ui.jump_to_next_lbl_match(count as i16),
+        KeyCode::Char('p') => ui.jump_to_next_lbl_match(-1 * count as i16),
+        KeyCode::Char(']') => ui.jump_to_next_seq_match(count as i16),
+        KeyCode::Char('[') => ui.jump_to_next_seq_match(-1 * count as i16),
 
         // Left Pane width
         KeyCode::Char('>') => ui.widen_label_pane(count as u16),
