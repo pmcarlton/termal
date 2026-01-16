@@ -156,15 +156,24 @@ Extended commands (:)
 * :s<Ret>      : open Search List panel (a=add, c=current, d=delete, space=toggle, 1-9=select)
 * :es<Ret>     : export current view to SVG (prompts for path)
 * :ra<Ret>     : realign sequences with mafft and show tree panel (requires .termalconfig)
+* :tn<Ret>     : enter tree navigation mode (auto-realigns if needed)
 * :tt<Ret>     : toggle tree panel visibility
 * :rc<Ret>     : reject current match (y/n to confirm)
 * :ru<Ret>     : reject unmatched sequences (y/n to confirm)
 * :rm<Ret>     : reject matched sequences (y/n to confirm)
+* :rk<Ret>     : reject marked sequences (from label search or tree selection)
 * :ur<Ret>     : undo last rejection (restores file and sequences)
 * :sn<Ret>     : select header by displayed number (e.g., :sn 31)
 * :rn<Ret>     : reject by displayed number(s) (e.g., :rn 1,4,6-8)
 * :ss<Ret>     : save session to .trml (prompted, with overwrite confirmation)
 * :sl<Ret>     : load session from .trml (choose from list)
+
+Tree navigation (:tn)
+---------------------
+
+* Right/Left or l/h : descend into child / move to parent (change range)
+* Up/Down or k/j    : move within current depth
+* Esc               : exit tree navigation (marks selected leaves)
 
 Filtering
 ---------

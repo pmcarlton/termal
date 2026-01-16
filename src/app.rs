@@ -20,10 +20,10 @@ use crate::{
     errors::TermalError,
     seq::fasta::read_fasta_file,
     session::{
-        SessionCurrentSearch, SessionFile, SessionLabelSearch, SessionSearchEntry,
-        SessionSearchKind,
+        SessionCurrentSearch, SessionFile, SessionLabelSearch, SessionLabelSource,
+        SessionSearchEntry, SessionSearchKind,
     },
-    tree::{parse_newick, tree_lines_and_order},
+    tree::{parse_newick, tree_lines_and_order, tree_lines_and_order_with_selection, TreeNode},
 };
 
 type SearchColor = (u8, u8, u8);
@@ -72,6 +72,12 @@ pub enum Metric {
 pub enum SearchKind {
     Regex,
     Emboss,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LabelSearchSource {
+    Regex,
+    Tree,
 }
 
 impl fmt::Display for Metric {
@@ -308,6 +314,8 @@ pub struct App {
     search_registry: SearchRegistry,
     search_color_config: SearchColorConfig,
     current_msg: CurrentMessage,
+    label_search_source: Option<LabelSearchSource>,
+    tree_selection_range: Option<(usize, usize)>,
     emboss_bin_dir: Option<PathBuf>,
     mafft_bin_dir: Option<PathBuf>,
     last_reject: Option<LastReject>,
@@ -316,6 +324,8 @@ pub struct App {
     rejected_output_path: PathBuf,
     tree_lines: Vec<String>,
     tree_panel_width: u16,
+    tree: Option<TreeNode>,
+    tree_newick: Option<String>,
 }
 
 impl App {
@@ -356,6 +366,8 @@ impl App {
             search_registry: SearchRegistry::new(search_color_config.palette.clone()),
             search_color_config,
             current_msg: cur_msg,
+            label_search_source: None,
+            tree_selection_range: None,
             emboss_bin_dir: None,
             mafft_bin_dir: None,
             last_reject: None,
@@ -364,6 +376,8 @@ impl App {
             rejected_output_path,
             tree_lines: Vec::new(),
             tree_panel_width: 0,
+            tree: None,
+            tree_newick: None,
         }
     }
 
@@ -449,9 +463,12 @@ impl App {
         let label_search = self.search_state.as_ref().map(|state| SessionLabelSearch {
             pattern: state.pattern.clone(),
             current: Some(state.current),
+            matches: Some(state.match_linenums.clone()),
+            source: self.label_search_source.map(SessionLabelSource::from),
+            tree_range: self.tree_selection_range,
         });
         SessionFile {
-            version: 1,
+            version: 2,
             source_filename: self.filename.clone(),
             headers,
             sequences,
@@ -460,6 +477,7 @@ impl App {
             } else {
                 Some(self.tree_lines.clone())
             },
+            tree_newick: self.tree_newick.clone(),
             saved_searches,
             current_search,
             label_search,
@@ -481,7 +499,16 @@ impl App {
         self.user_ordering = None;
         self.last_reject = None;
 
-        self.tree_lines = session.tree_lines.unwrap_or_default();
+        self.tree_newick = session.tree_newick;
+        if let Some(newick) = &self.tree_newick {
+            let tree = parse_newick(newick)?;
+            let (lines, _order) = tree_lines_and_order(&tree)?;
+            self.tree = Some(tree);
+            self.tree_lines = lines;
+        } else {
+            self.tree = None;
+            self.tree_lines = session.tree_lines.unwrap_or_default();
+        }
         self.tree_panel_width = self
             .tree_lines
             .iter()
@@ -539,8 +566,25 @@ impl App {
         }
 
         self.search_state = None;
+        self.label_search_source = None;
+        self.tree_selection_range = None;
         if let Some(label) = session.label_search {
-            self.regex_search_labels(&label.pattern);
+            let source = label
+                .source
+                .map(LabelSearchSource::from)
+                .unwrap_or(LabelSearchSource::Regex);
+            self.label_search_source = Some(source);
+            self.tree_selection_range = label.tree_range;
+            if let Some(matches) = label.matches {
+                let state = build_label_state_from_matches(
+                    label.pattern.clone(),
+                    matches,
+                    self.alignment.headers.len(),
+                );
+                self.search_state = Some(state);
+            } else {
+                self.regex_search_labels(&label.pattern);
+            }
             if let Some(state) = &mut self.search_state {
                 if let Some(idx) = label.current {
                     if idx < state.match_linenums.len() {
@@ -548,6 +592,9 @@ impl App {
                     }
                 }
             }
+        }
+        if self.tree.is_some() {
+            self.update_tree_lines_for_selection();
         }
 
         self.notes = session.notes.unwrap_or_default();
@@ -718,10 +765,18 @@ impl App {
     pub fn regex_search_labels(&mut self, pattern: &str) {
         // self.debug_msg("Regex search");
         match compute_label_search_state(&self.alignment.headers, pattern) {
-            Ok(state) => self.search_state = Some(state),
+            Ok(state) => {
+                self.search_state = Some(state);
+                self.label_search_source = Some(LabelSearchSource::Regex);
+                self.tree_selection_range = None;
+                self.update_tree_lines_for_selection();
+            }
             Err(e) => {
                 self.error_msg(format!("Malformed regex {}.", e));
                 self.search_state = None;
+                self.label_search_source = None;
+                self.tree_selection_range = None;
+                self.update_tree_lines_for_selection();
             }
         };
     }
@@ -738,6 +793,9 @@ impl App {
             Ok(mut state) => {
                 state.current = 0;
                 self.search_state = Some(state);
+                self.label_search_source = Some(LabelSearchSource::Regex);
+                self.tree_selection_range = None;
+                self.update_tree_lines_for_selection();
                 Ok(())
             }
             Err(e) => Err(TermalError::Format(format!("Malformed regex {}.", e))),
@@ -805,6 +863,33 @@ impl App {
 
     pub fn reset_lbl_search(&mut self) {
         self.search_state = None;
+        self.label_search_source = None;
+        self.tree_selection_range = None;
+        self.update_tree_lines_for_selection();
+    }
+
+    pub fn set_label_matches_from_tree(&mut self, matches: Vec<usize>, tree_range: (usize, usize)) {
+        if matches.is_empty() {
+            self.reset_lbl_search();
+            return;
+        }
+        let mut state = build_label_state_from_matches(
+            String::from("<tree>"),
+            matches,
+            self.alignment.headers.len(),
+        );
+        state.current = 0;
+        self.search_state = Some(state);
+        self.label_search_source = Some(LabelSearchSource::Tree);
+        self.tree_selection_range = Some(tree_range);
+        self.update_tree_lines_for_selection();
+    }
+
+    pub fn marked_label_ranks(&self) -> Vec<usize> {
+        self.search_state
+            .as_ref()
+            .map(|state| state.match_linenums.clone())
+            .unwrap_or_default()
     }
 
     pub fn regex_search_sequences(&mut self, pattern: &str) {
@@ -1011,6 +1096,18 @@ impl App {
             .search_state
             .as_ref()
             .map(|state| state.pattern.clone());
+        let label_search_headers = if self.label_search_source == Some(LabelSearchSource::Tree) {
+            self.search_state.as_ref().map(|state| {
+                state
+                    .match_linenums
+                    .iter()
+                    .filter_map(|idx| self.alignment.headers.get(*idx).cloned())
+                    .collect::<Vec<String>>()
+            })
+        } else {
+            None
+        };
+        let label_search_source = self.label_search_source;
 
         let mut removed: Vec<RemovedSeq> = Vec::new();
         let mut sorted: Vec<usize> = ranks.to_vec();
@@ -1033,6 +1130,8 @@ impl App {
             current_label_header,
             current_seq_match,
             label_search_pattern,
+            label_search_headers,
+            label_search_source,
             seq_search_kind,
             seq_search_pattern,
         );
@@ -1044,26 +1143,61 @@ impl App {
         current_label_header: Option<String>,
         current_seq_match: Option<(String, (usize, usize))>,
         label_search_pattern: Option<String>,
+        label_search_headers: Option<Vec<String>>,
+        label_search_source: Option<LabelSearchSource>,
         seq_search_kind: Option<SearchKind>,
         seq_search_pattern: Option<String>,
     ) {
-        if let Some(pattern) = label_search_pattern {
-            match compute_label_search_state(&self.alignment.headers, &pattern) {
-                Ok(mut state) => {
-                    if let Some(target) = current_label_header {
-                        if let Some(pos) = state
-                            .match_linenums
-                            .iter()
-                            .position(|&idx| self.alignment.headers.get(idx) == Some(&target))
-                        {
-                            state.current = pos;
+        match label_search_source {
+            Some(LabelSearchSource::Tree) => {
+                if let Some(headers) = label_search_headers {
+                    let matches = map_headers_to_indices(&self.alignment.headers, &headers);
+                    if matches.is_empty() {
+                        self.search_state = None;
+                    } else {
+                        let mut state = build_label_state_from_matches(
+                            String::from("<tree>"),
+                            matches,
+                            self.alignment.headers.len(),
+                        );
+                        if let Some(target) = current_label_header {
+                            if let Some(pos) = state
+                                .match_linenums
+                                .iter()
+                                .position(|&idx| self.alignment.headers.get(idx) == Some(&target))
+                            {
+                                state.current = pos;
+                            }
+                        }
+                        self.search_state = Some(state);
+                        self.label_search_source = Some(LabelSearchSource::Tree);
+                    }
+                } else {
+                    self.search_state = None;
+                }
+            }
+            Some(LabelSearchSource::Regex) | None => {
+                if let Some(pattern) = label_search_pattern {
+                    match compute_label_search_state(&self.alignment.headers, &pattern) {
+                        Ok(mut state) => {
+                            if let Some(target) = current_label_header {
+                                if let Some(pos) = state.match_linenums.iter().position(|&idx| {
+                                    self.alignment.headers.get(idx) == Some(&target)
+                                }) {
+                                    state.current = pos;
+                                }
+                            }
+                            self.search_state = Some(state);
+                            self.label_search_source = Some(LabelSearchSource::Regex);
+                            self.tree_selection_range = None;
+                        }
+                        Err(e) => {
+                            self.error_msg(format!("Malformed regex {}.", e));
+                            self.search_state = None;
+                            self.label_search_source = None;
+                            self.tree_selection_range = None;
                         }
                     }
-                    self.search_state = Some(state);
-                }
-                Err(e) => {
-                    self.error_msg(format!("Malformed regex {}.", e));
-                    self.search_state = None;
                 }
             }
         }
@@ -1178,10 +1312,25 @@ impl App {
                 .search_state
                 .as_ref()
                 .map(|state| state.pattern.clone());
+            let label_search_headers = if self.label_search_source == Some(LabelSearchSource::Tree)
+            {
+                self.search_state.as_ref().map(|state| {
+                    state
+                        .match_linenums
+                        .iter()
+                        .filter_map(|idx| self.alignment.headers.get(*idx).cloned())
+                        .collect::<Vec<String>>()
+                })
+            } else {
+                None
+            };
+            let label_search_source = self.label_search_source;
             self.recompute_search_state(
                 current_label_header,
                 current_seq_match,
                 label_search_pattern,
+                label_search_headers,
+                label_search_source,
                 seq_search_kind,
                 seq_search_pattern,
             );
@@ -1228,6 +1377,18 @@ impl App {
             .search_state
             .as_ref()
             .map(|state| state.pattern.clone());
+        let label_search_headers = if self.label_search_source == Some(LabelSearchSource::Tree) {
+            self.search_state.as_ref().map(|state| {
+                state
+                    .match_linenums
+                    .iter()
+                    .filter_map(|idx| self.alignment.headers.get(*idx).cloned())
+                    .collect::<Vec<String>>()
+            })
+        } else {
+            None
+        };
+        let label_search_source = self.label_search_source;
 
         for rec in &last.removed {
             self.alignment
@@ -1238,6 +1399,8 @@ impl App {
             current_label_header,
             current_seq_match,
             label_search_pattern,
+            label_search_headers,
+            label_search_source,
             seq_search_kind,
             seq_search_pattern,
         );
@@ -1292,6 +1455,45 @@ impl App {
         !self.tree_lines.is_empty()
     }
 
+    pub fn tree(&self) -> Option<&TreeNode> {
+        self.tree.as_ref()
+    }
+
+    pub fn tree_selection_range(&self) -> Option<(usize, usize)> {
+        self.tree_selection_range
+    }
+
+    fn update_tree_lines_for_selection(&mut self) {
+        if let Some(tree) = &self.tree {
+            let selection = self.tree_selection_range;
+            if let Ok((lines, _order)) = tree_lines_and_order_with_selection(tree, selection) {
+                self.tree_lines = lines;
+                self.tree_panel_width = self
+                    .tree_lines
+                    .iter()
+                    .map(|line| line.chars().count())
+                    .max()
+                    .unwrap_or(0)
+                    .min(u16::MAX as usize) as u16;
+            }
+        }
+    }
+
+    pub fn map_tree_leaf_ranks(&self, leaf_names: &[String]) -> Result<Vec<usize>, TermalError> {
+        let mapped_headers = self.map_order_to_headers(leaf_names.to_vec())?;
+        let mut index_map: HashMap<&String, usize> = HashMap::new();
+        for (idx, header) in self.alignment.headers.iter().enumerate() {
+            index_map.insert(header, idx);
+        }
+        let mut result = Vec::new();
+        for header in mapped_headers {
+            if let Some(idx) = index_map.get(&header) {
+                result.push(*idx);
+            }
+        }
+        Ok(result)
+    }
+
     pub fn realign_with_mafft(&mut self) -> Result<(), TermalError> {
         if self.mafft_bin_dir.is_none() {
             return Err(TermalError::Format(String::from(
@@ -1333,6 +1535,8 @@ impl App {
         self.alignment = Alignment::from_file(seq_file);
         self.search_state = None;
         self.seq_search_state = None;
+        self.label_search_source = None;
+        self.tree_selection_range = None;
         self.refresh_saved_searches();
         self.set_user_ordering(order)?;
         self.tree_lines = lines;
@@ -1343,6 +1547,8 @@ impl App {
             .max()
             .unwrap_or(0)
             .min(u16::MAX as usize) as u16;
+        self.tree = Some(tree);
+        self.tree_newick = Some(tree_text);
         self.recompute_ordering();
 
         fs::remove_file(&input_path).ok();
@@ -1740,6 +1946,39 @@ fn compute_label_search_state(
     })
 }
 
+fn build_label_state_from_matches(
+    pattern: String,
+    matches: Vec<usize>,
+    header_len: usize,
+) -> SearchState {
+    let mut hdr_match_status: Vec<bool> = vec![false; header_len];
+    let mut filtered: Vec<usize> = Vec::new();
+    for idx in matches {
+        if idx < header_len {
+            hdr_match_status[idx] = true;
+            filtered.push(idx);
+        }
+    }
+    let regex = Regex::new("$^").unwrap();
+    SearchState {
+        pattern,
+        regex,
+        match_linenums: filtered,
+        current: 0,
+        hdr_match_status,
+    }
+}
+
+fn map_headers_to_indices(headers: &[String], marked: &[String]) -> Vec<usize> {
+    let mut indices: Vec<usize> = Vec::new();
+    for header in marked {
+        if let Some(pos) = headers.iter().position(|h| h == header) {
+            indices.push(pos);
+        }
+    }
+    indices
+}
+
 fn parse_color_value(value: &Value) -> Result<SearchColor, TermalError> {
     match value {
         Value::String(s) => {
@@ -1958,6 +2197,7 @@ mod tests {
     use crate::{
         alignment::Alignment,
         app::{order, App, SearchKind, SeqMatch, SeqOrdering},
+        tree::{parse_newick, tree_lines_and_order},
     };
     use serde_json::json;
     use std::path::PathBuf;
@@ -2326,8 +2566,18 @@ mod tests {
         let seqs = vec![String::from("AA"), String::from("BB"), String::from("AA")];
         let aln = Alignment::from_vecs(hdrs, seqs);
         let mut app = App::new("TEST", aln, None);
-        app.tree_lines = vec![String::from("root")];
-        app.tree_panel_width = 4;
+        let tree = parse_newick("(R1,(R2,R3));").unwrap();
+        let (lines, _order) = tree_lines_and_order(&tree).unwrap();
+        app.tree_lines = lines;
+        app.tree_panel_width = app
+            .tree_lines
+            .iter()
+            .map(|line| line.chars().count())
+            .max()
+            .unwrap_or(0)
+            .min(u16::MAX as usize) as u16;
+        app.tree_newick = Some(String::from("(R1,(R2,R3));"));
+        app.tree = Some(tree);
         app.set_notes(String::from("Session notes"));
         app.add_saved_search_with_kind(
             String::from("motif"),
@@ -2336,6 +2586,7 @@ mod tests {
         )
         .unwrap();
         app.regex_search_sequences("AA");
+        app.set_label_matches_from_tree(vec![0, 2], (0, 2));
 
         let mut path = PathBuf::from(std::env::temp_dir());
         path.push("termal-test-session.trml");
@@ -2344,9 +2595,11 @@ mod tests {
 
         let loaded = App::from_session_file(&path).unwrap();
         assert_eq!(loaded.alignment.headers.len(), 3);
-        assert_eq!(loaded.tree_lines.len(), 1);
+        assert_eq!(loaded.tree_lines.len(), 3);
+        assert!(loaded.tree.is_some());
         assert_eq!(loaded.saved_searches().len(), 1);
         assert_eq!(loaded.current_seq_search_pattern(), Some("AA"));
+        assert_eq!(loaded.marked_label_ranks(), vec![0, 2]);
         assert_eq!(loaded.notes(), "Session notes");
         let _ = std::fs::remove_file(&path);
     }

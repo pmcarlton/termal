@@ -10,6 +10,7 @@ use super::{
     InputMode::{
         Command, ConfirmOverwrite, ConfirmReject, ConfirmSessionOverwrite, ExportSvg, Help,
         LabelSearch, Normal, Notes, PendingCount, Search, SearchList, SessionList, SessionSave,
+        TreeNav,
     },
     //SearchDirection,
     {RejectMode, ZoomLevel, UI},
@@ -110,6 +111,7 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         SessionList { selected, files } => handle_session_list(ui, key_event, selected, &files),
         Notes { editor } => handle_notes(ui, key_event, editor),
         ConfirmReject { mode } => handle_confirm_reject(ui, key_event, mode),
+        TreeNav { nav } => handle_tree_nav(ui, key_event, nav),
     };
     if ui.has_exit_message() {
         true
@@ -396,6 +398,32 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                     }
                     Err(e) => ui.app.error_msg(format!("mafft failed: {}", e)),
                 }
+            } else if cmd.trim() == "tn" {
+                if ui.app.tree().is_none() {
+                    ui.app.info_msg("Running mafft...");
+                    match ui.app.realign_with_mafft() {
+                        Ok(()) => {
+                            ui.show_tree_panel(true);
+                            ui.app.info_msg("Realigned with mafft");
+                        }
+                        Err(e) => {
+                            ui.app.error_msg(format!("mafft failed: {}", e));
+                            return;
+                        }
+                    }
+                }
+                match ui.app.tree() {
+                    Some(tree) => match super::build_tree_nav(ui.app, tree) {
+                        Ok(nav) => {
+                            apply_tree_nav_selection(ui, &nav);
+                            ui.input_mode = InputMode::TreeNav { nav };
+                        }
+                        Err(e) => ui
+                            .app
+                            .error_msg(format!("Tree navigation unavailable: {}", e)),
+                    },
+                    None => ui.app.warning_msg("No tree available"),
+                }
             } else if cmd.trim() == "tt" {
                 if ui.app.has_tree_panel() {
                     ui.toggle_tree_panel();
@@ -437,6 +465,28 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 ui.input_mode = InputMode::SessionSave { editor };
                 ui.app
                     .argument_msg(String::from("Session: "), ui.session_save_text());
+            } else if cmd.trim() == "rk" {
+                let ranks = ui.app.marked_label_ranks();
+                if ranks.is_empty() {
+                    ui.app.warning_msg("No marked sequences");
+                    return;
+                }
+                let out_path = ui.app.rejected_path();
+                match ui.app.reject_sequences(&ranks, &out_path) {
+                    Ok(count) => {
+                        if count == 0 {
+                            ui.app.info_msg("No sequences rejected");
+                        } else {
+                            ui.app.info_msg(format!("Rejected {} sequences", count));
+                            if ui.app.alignment.num_seq() == 0 {
+                                ui.set_exit_message(
+                                    "all sequences have been rejected, ending program",
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => ui.app.error_msg(format!("Rejection failed: {}", e)),
+                }
             } else if cmd.trim() == "sl" {
                 let read_dir = match fs::read_dir(".") {
                     Ok(read_dir) => read_dir,
@@ -534,6 +584,40 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
         }
         _ => {}
     }
+}
+
+fn apply_tree_nav_selection(ui: &mut UI, nav: &super::TreeNav) {
+    let ranks = nav.selected_leaf_ranks();
+    let range = nav.selected_leaf_range();
+    ui.app.set_label_matches_from_tree(ranks, range);
+}
+
+fn handle_tree_nav(ui: &mut UI, key_event: KeyEvent, mut nav: super::TreeNav) {
+    let mut changed = false;
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+            return;
+        }
+        KeyCode::Left | KeyCode::Char('h') => {
+            changed = nav.move_left();
+        }
+        KeyCode::Right | KeyCode::Char('l') => {
+            changed = nav.move_right();
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            changed = nav.move_up();
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            changed = nav.move_down();
+        }
+        _ => {}
+    }
+    if changed {
+        apply_tree_nav_selection(ui, &nav);
+    }
+    ui.input_mode = InputMode::TreeNav { nav };
 }
 
 fn handle_search_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {

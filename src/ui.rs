@@ -36,6 +36,7 @@ use self::{
 use crate::{
     app::{App, SearchKind, SeqOrdering},
     errors::TermalError,
+    tree::TreeNode,
 };
 
 const V_SCROLLBAR_WIDTH: u16 = 1;
@@ -105,6 +106,9 @@ enum InputMode {
     ConfirmReject {
         mode: RejectMode,
     },
+    TreeNav {
+        nav: TreeNav,
+    },
     // ExCommand { buffer: String },
 }
 
@@ -113,6 +117,141 @@ enum RejectMode {
     Current,
     Unmatched,
     Matched,
+}
+
+#[derive(Clone, PartialEq)]
+struct TreeNavNode {
+    parent: Option<usize>,
+    children: Vec<usize>,
+    depth: usize,
+    leaf_range: (usize, usize),
+}
+
+#[derive(Clone, PartialEq)]
+struct TreeNav {
+    nodes: Vec<TreeNavNode>,
+    depth_nodes: Vec<Vec<usize>>,
+    current: usize,
+    leaf_names: Vec<String>,
+    leaf_ranks: Vec<usize>,
+}
+
+impl TreeNav {
+    fn selected_leaf_range(&self) -> (usize, usize) {
+        self.nodes[self.current].leaf_range
+    }
+
+    fn selected_leaf_ranks(&self) -> Vec<usize> {
+        let (start, end) = self.selected_leaf_range();
+        self.leaf_ranks[start..=end].to_vec()
+    }
+
+    fn move_right(&mut self) -> bool {
+        let children = &self.nodes[self.current].children;
+        if children.is_empty() {
+            return false;
+        }
+        let mut best = children[0];
+        let mut best_start = self.nodes[best].leaf_range.0;
+        for child in children.iter().skip(1) {
+            let start = self.nodes[*child].leaf_range.0;
+            if start < best_start {
+                best = *child;
+                best_start = start;
+            }
+        }
+        self.current = best;
+        true
+    }
+
+    fn move_left(&mut self) -> bool {
+        if let Some(parent) = self.nodes[self.current].parent {
+            self.current = parent;
+            return true;
+        }
+        false
+    }
+
+    fn move_down(&mut self) -> bool {
+        self.move_level(1)
+    }
+
+    fn move_up(&mut self) -> bool {
+        self.move_level(-1)
+    }
+
+    fn move_level(&mut self, delta: isize) -> bool {
+        let depth = self.nodes[self.current].depth;
+        let level = match self.depth_nodes.get(depth) {
+            Some(level) if !level.is_empty() => level,
+            _ => return false,
+        };
+        let pos = level
+            .iter()
+            .position(|node_id| *node_id == self.current)
+            .unwrap_or(0) as isize;
+        let len = level.len() as isize;
+        let next = (pos + delta).rem_euclid(len) as usize;
+        self.current = level[next];
+        true
+    }
+}
+
+fn build_tree_nav(app: &App, tree: &TreeNode) -> Result<TreeNav, TermalError> {
+    let mut nodes: Vec<TreeNavNode> = Vec::new();
+    let mut depth_nodes: Vec<Vec<usize>> = Vec::new();
+    let mut leaf_names: Vec<String> = Vec::new();
+
+    fn walk(
+        node: &TreeNode,
+        parent: Option<usize>,
+        depth: usize,
+        nodes: &mut Vec<TreeNavNode>,
+        depth_nodes: &mut Vec<Vec<usize>>,
+        leaf_names: &mut Vec<String>,
+    ) -> (usize, usize, usize) {
+        let id = nodes.len();
+        nodes.push(TreeNavNode {
+            parent,
+            children: Vec::new(),
+            depth,
+            leaf_range: (0, 0),
+        });
+        if depth_nodes.len() <= depth {
+            depth_nodes.push(Vec::new());
+        }
+        depth_nodes[depth].push(id);
+        let start = leaf_names.len();
+        if node.children.is_empty() {
+            leaf_names.push(node.name.clone().unwrap_or_default());
+            nodes[id].leaf_range = (start, start);
+            return (id, start, start);
+        }
+        let mut child_ids = Vec::new();
+        let mut end = start;
+        for child in &node.children {
+            let (child_id, _cstart, cend) =
+                walk(child, Some(id), depth + 1, nodes, depth_nodes, leaf_names);
+            child_ids.push(child_id);
+            end = end.max(cend);
+        }
+        nodes[id].children = child_ids;
+        nodes[id].leaf_range = (start, end);
+        (id, start, end)
+    }
+
+    walk(tree, None, 0, &mut nodes, &mut depth_nodes, &mut leaf_names);
+    for level in &mut depth_nodes {
+        level.sort_by_key(|node_id| nodes[*node_id].leaf_range.0);
+    }
+    let leaf_ranks = app.map_tree_leaf_ranks(&leaf_names)?;
+    Ok(TreeNav {
+        nodes,
+        depth_nodes,
+        current: 0,
+        leaf_names,
+        leaf_ranks,
+    })
 }
 
 pub const USER_GUIDE: &str = include_str!("ui/bindings.md");

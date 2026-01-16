@@ -19,6 +19,7 @@
 * Separate header/sequence match navigation (`n/p` vs `[`/`]`) and numbered selection/rejection (`:sn`, `:rn`)
 * Session save/load with JSON .trml files (`:ss`, `:sl`)
 * Notes editor (`@`) stored inside session files
+* Tree navigation mode (`:tn`) with subtree marking and `:rk` reject for marked labels
 
 ### Changed
 
@@ -31,6 +32,7 @@
 * Tree panel auto-hides for non-tree ordering modes and auto-shows for tree order
 * FASTA headers now use the ID token (first whitespace-delimited field)
 * Tools/colors configuration is unified in `.termalconfig` (searched in `$HOME`, then the current directory)
+* Tree selection now renders with heavy box-drawing for the selected subtree
 
 ### Fixed
 
