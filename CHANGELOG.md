@@ -6,9 +6,9 @@
 
 * Search mode with a line editor for sequence regex searches (`/`) and EMBOSS (fuzzpro/fuzznuc) fuzzy searches (`\`)
 * Search registry with multiple saved searches, enable/disable toggles, and a Search List panel (`:s`)
-* EMBOSS fuzzy search integration (fuzzpro/fuzznuc) with GFF parsing and `tools.config`
+* EMBOSS fuzzy search integration (fuzzpro/fuzznuc) with GFF parsing and `.termalconfig`
 * Optional leading mismatch count for EMBOSS patterns (e.g., `2 PATTERN` -> `-pmis 2`)
-* Configurable search colors via `colors.config` and mono-white as the default color mode
+* Configurable search colors via `.termalconfig` and mono-white as the default color mode
 * Header filtering: reject current header match to `rejected<file>` (`!`) and write filtered view to `filtered<file>` (`W`)
 * README caveat about terminal color schemes affecting ANSI colors
 * Clustal alignment input format (`-f clustal`)
@@ -30,6 +30,7 @@
 * SVG export renders highlighted sequence matches in bold text
 * Tree panel auto-hides for non-tree ordering modes and auto-shows for tree order
 * FASTA headers now use the ID token (first whitespace-delimited field)
+* Tools/colors configuration is unified in `.termalconfig` (searched in `$HOME`, then the current directory)
 
 ### Fixed
 

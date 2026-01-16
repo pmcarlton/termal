@@ -10,7 +10,7 @@ potential enhancements and new features that would make termal faster, clearer, 
 - [ ] Alignment statistics summary panel (gap %, identity %, entropy, composition).
 - [ ] Import/export of selected sequences or visible subset to FASTA/Stockholm/clustal, add support for more formats and auto-detection.
 - [x] Session files to restore filters, searches, ordering, and panes.
-- [x] Realigning using mafft or clustal (shown in tools.config) and ordering by phylogenetic tree. 
+- [x] Realigning using mafft or clustal (shown in .termalconfig) and ordering by phylogenetic tree. 
 - [x] Toggleable panel to show tree with simple graphics.
 - [ ] Selection and navigation by phylogenetic tree (jump between clades/leaf nodes).
 - [ ] Multi-level undo/redo for reject/filter actions and search edits.

@@ -5,14 +5,14 @@ use std::{
     fmt,
     fs::File,
     io::{stdout, BufRead, BufReader},
-    path::Path,
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
 use log::info;
 
 use crate::alignment::Alignment;
-use crate::app::{App, SearchColorConfig, ToolsConfig};
+use crate::app::{App, TermalConfig};
 use crate::seq::clustal::read_clustal_file;
 use crate::seq::fasta::read_fasta_file;
 use crate::seq::stockholm::read_stockholm_file;
@@ -58,14 +58,6 @@ struct Cli {
     /// Gecos color map
     #[arg(short, long = "color-map")]
     color_map: Option<String>,
-
-    /// Search highlight colors config (JSON)
-    #[arg(long = "search-colors")]
-    search_colors: Option<String>,
-
-    /// EMBOSS tools config (JSON)
-    #[arg(long = "tools-config")]
-    tools_config: Option<String>,
 
     /// Fixed terminal width (mostly used for testing/debugging)
     #[arg(short, long, requires = "height")]
@@ -152,6 +144,22 @@ fn read_user_ordering(fname: &str) -> Result<Vec<String>, std::io::Error> {
     reader.lines().collect()
 }
 
+fn find_termal_config() -> Option<PathBuf> {
+    if let Ok(home) = std::env::var("HOME") {
+        let path = PathBuf::from(home).join(".termalconfig");
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        let path = cwd.join(".termalconfig");
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    None
+}
+
 pub fn run() -> Result<(), TermalError> {
     env_logger::init();
     info!("Starting log");
@@ -214,36 +222,14 @@ pub fn run() -> Result<(), TermalError> {
             app
         };
 
-        let default_search_colors = "colors.config";
-        let search_colors_path = cli.search_colors.or_else(|| {
-            if Path::new(default_search_colors).exists() {
-                Some(default_search_colors.to_string())
-            } else {
-                None
-            }
-        });
-        if let Some(path) = search_colors_path {
-            match SearchColorConfig::from_file(&path) {
-                Ok(config) => app.set_search_color_config(config),
-                Err(e) => app.error_msg(format!("Error reading search colors {}: {}", path, e)),
-            }
-        }
-
-        let default_tools_config = "tools.config";
-        let tools_config_path = cli.tools_config.or_else(|| {
-            if Path::new(default_tools_config).exists() {
-                Some(default_tools_config.to_string())
-            } else {
-                None
-            }
-        });
-        if let Some(path) = tools_config_path {
-            match ToolsConfig::from_file(Path::new(&path)) {
+        if let Some(path) = find_termal_config() {
+            match TermalConfig::from_file(&path) {
                 Ok(config) => {
-                    app.set_emboss_bin_dir(config.emboss_bin_dir);
-                    app.set_mafft_bin_dir(config.mafft_bin_dir);
+                    app.set_search_color_config(config.search_colors);
+                    app.set_emboss_bin_dir(config.tools.emboss_bin_dir);
+                    app.set_mafft_bin_dir(config.tools.mafft_bin_dir);
                 }
-                Err(e) => app.error_msg(format!("Error reading tools config {}: {}", path, e)),
+                Err(e) => app.error_msg(format!("Error reading {}: {}", path.display(), e)),
             }
         }
         app.refresh_saved_searches_public();

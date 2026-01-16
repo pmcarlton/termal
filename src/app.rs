@@ -149,10 +149,7 @@ pub struct SearchColorConfig {
 }
 
 impl SearchColorConfig {
-    pub fn from_file(path: &str) -> Result<Self, TermalError> {
-        let contents = fs::read_to_string(path)?;
-        let value: Value =
-            serde_json::from_str(&contents).map_err(|e| format!("Invalid JSON: {}", e))?;
+    pub fn from_value(value: &Value) -> Self {
         let palette = value
             .get("palette")
             .and_then(|v| v.as_array())
@@ -181,7 +178,7 @@ impl SearchColorConfig {
             .and_then(|v| v.as_f64())
             .map(|v| v.clamp(0.0, 1.0) as f32)
             .unwrap_or(DEFAULT_LUMINANCE_THRESHOLD);
-        Ok(Self {
+        Self {
             palette: if palette.is_empty() {
                 DEFAULT_SEARCH_PALETTE.to_vec()
             } else {
@@ -191,7 +188,14 @@ impl SearchColorConfig {
             min_component,
             gap_dim_factor,
             luminance_threshold,
-        })
+        }
+    }
+
+    pub fn from_file(path: &Path) -> Result<Self, TermalError> {
+        let contents = fs::read_to_string(path)?;
+        let value: Value =
+            serde_json::from_str(&contents).map_err(|e| format!("Invalid JSON: {}", e))?;
+        Ok(Self::from_value(&value))
     }
 }
 
@@ -246,10 +250,7 @@ pub struct ToolsConfig {
 }
 
 impl ToolsConfig {
-    pub fn from_file(path: &Path) -> Result<Self, TermalError> {
-        let contents = fs::read_to_string(path)?;
-        let value: Value = serde_json::from_str(&contents)
-            .map_err(|e| TermalError::Format(format!("Invalid JSON {}: {}", path.display(), e)))?;
+    pub fn from_value(value: &Value) -> Self {
         let emboss_bin_dir = value
             .get("emboss_bin_dir")
             .and_then(|v| v.as_str())
@@ -258,9 +259,33 @@ impl ToolsConfig {
             .get("mafft_bin_dir")
             .and_then(|v| v.as_str())
             .map(PathBuf::from);
-        Ok(Self {
+        Self {
             emboss_bin_dir,
             mafft_bin_dir,
+        }
+    }
+
+    pub fn from_file(path: &Path) -> Result<Self, TermalError> {
+        let contents = fs::read_to_string(path)?;
+        let value: Value = serde_json::from_str(&contents)
+            .map_err(|e| TermalError::Format(format!("Invalid JSON {}: {}", path.display(), e)))?;
+        Ok(Self::from_value(&value))
+    }
+}
+
+pub struct TermalConfig {
+    pub search_colors: SearchColorConfig,
+    pub tools: ToolsConfig,
+}
+
+impl TermalConfig {
+    pub fn from_file(path: &Path) -> Result<Self, TermalError> {
+        let contents = fs::read_to_string(path)?;
+        let value: Value = serde_json::from_str(&contents)
+            .map_err(|e| TermalError::Format(format!("Invalid JSON {}: {}", path.display(), e)))?;
+        Ok(Self {
+            search_colors: SearchColorConfig::from_value(&value),
+            tools: ToolsConfig::from_value(&value),
         })
     }
 }
@@ -881,6 +906,11 @@ impl App {
         let state = match kind {
             SearchKind::Regex => compute_seq_search_state(&self.alignment.sequences, &query, kind)
                 .map_err(|e| format!("Malformed regex {}.", e))?,
+            SearchKind::Emboss if self.emboss_bin_dir.is_none() => {
+                return Err(String::from(
+                    "Emboss search unavailable. Create .termalconfig in $HOME or current directory with emboss_bin_dir.",
+                ));
+            }
             SearchKind::Emboss => compute_emboss_search_state(
                 &self.alignment.headers,
                 &self.alignment.sequences,
@@ -916,6 +946,13 @@ impl App {
 
     pub fn emboss_search_sequences(&mut self, pattern: &str) {
         if pattern.is_empty() {
+            self.clear_seq_search();
+            return;
+        }
+        if self.emboss_bin_dir.is_none() {
+            self.error_msg(
+                "Emboss search unavailable. Create .termalconfig in $HOME or current directory with emboss_bin_dir.",
+            );
             self.clear_seq_search();
             return;
         }
@@ -1256,6 +1293,11 @@ impl App {
     }
 
     pub fn realign_with_mafft(&mut self) -> Result<(), TermalError> {
+        if self.mafft_bin_dir.is_none() {
+            return Err(TermalError::Format(String::from(
+                "mafft not configured. Create .termalconfig in $HOME or current directory with mafft_bin_dir.",
+            )));
+        }
         let mut input_path = std::env::temp_dir();
         let unique = format!("termal-mafft-{}.fa", std::process::id());
         input_path.push(unique);
@@ -1720,13 +1762,16 @@ fn compute_emboss_search_state(
     pattern: &str,
     emboss_bin_dir: Option<&Path>,
 ) -> Result<SeqSearchState, TermalError> {
+    let emboss_bin_dir = emboss_bin_dir.ok_or_else(|| {
+        TermalError::Format(String::from(
+            "Emboss tools not configured. Create .termalconfig in $HOME or current directory with emboss_bin_dir.",
+        ))
+    })?;
     let is_nucleic = sequences
         .iter()
         .all(|seq| seq.chars().all(|c| is_gap(c) || is_acgt(c)));
     let tool = if is_nucleic { "fuzznuc" } else { "fuzzpro" };
-    let tool_path = emboss_bin_dir
-        .map(|dir| dir.join(tool))
-        .unwrap_or_else(|| PathBuf::from(tool));
+    let tool_path = emboss_bin_dir.join(tool);
     let (pmis, emboss_pattern) = parse_emboss_query(pattern);
     let emboss_pattern = emboss_pattern.to_ascii_uppercase();
 
@@ -1909,10 +1954,12 @@ fn next_available_output_path(original: &str, tag: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
 
+    use super::{SearchColorConfig, ToolsConfig};
     use crate::{
         alignment::Alignment,
         app::{order, App, SearchKind, SeqMatch, SeqOrdering},
     };
+    use serde_json::json;
     use std::path::PathBuf;
 
     #[test]
@@ -1990,6 +2037,23 @@ mod tests {
         app.next_ordering_criterion();
         assert_eq!(app.ordering, vec![0, 3, 2, 4, 1]);
         assert_eq!(app.reverse_ordering, vec![0, 4, 2, 1, 3]);
+    }
+
+    #[test]
+    fn test_termal_config_from_value() {
+        let value = json!({
+            "palette": ["#010203"],
+            "current_search": [4, 5, 6],
+            "emboss_bin_dir": "/opt/emboss",
+            "mafft_bin_dir": "/opt/mafft"
+        });
+        let colors = SearchColorConfig::from_value(&value);
+        assert_eq!(colors.palette[0], (1, 2, 3));
+        assert_eq!(colors.current_search, (4, 5, 6));
+
+        let tools = ToolsConfig::from_value(&value);
+        assert_eq!(tools.emboss_bin_dir, Some(PathBuf::from("/opt/emboss")));
+        assert_eq!(tools.mafft_bin_dir, Some(PathBuf::from("/opt/mafft")));
     }
 
     #[test]
