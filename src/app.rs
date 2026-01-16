@@ -711,6 +711,7 @@ impl App {
         if ranks.is_empty() {
             return Vec::new();
         }
+        let mut header_set: HashSet<String> = HashSet::new();
         let current_label_header = self
             .current_label_match_rank()
             .and_then(|rank| self.alignment.headers.get(rank))
@@ -738,6 +739,10 @@ impl App {
             if let Some(item) = self.alignment.remove_seq(rank) {
                 removed.push(item);
             }
+        }
+        header_set.extend(self.alignment.headers.iter().cloned());
+        if let Some(ordering) = &mut self.user_ordering {
+            ordering.retain(|hdr| header_set.contains(hdr));
         }
 
         if let Some(pattern) = label_search_pattern {
@@ -1714,6 +1719,39 @@ mod tests {
         assert_eq!(app.get_seq_ordering(), SeqOrdering::SearchMatch);
         assert_eq!(app.current_seq_search_pattern(), Some("AA"));
         assert_eq!(app.seq_search_spans().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_remove_sequences_prunes_user_ordering() {
+        let hdrs = vec![
+            String::from("R1"),
+            String::from("R2"),
+            String::from("R3"),
+            String::from("R4"),
+        ];
+        let seqs = vec![
+            String::from("AA"),
+            String::from("BB"),
+            String::from("CC"),
+            String::from("DD"),
+        ];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.set_user_ordering(vec![
+            String::from("R3"),
+            String::from("R1"),
+            String::from("R4"),
+            String::from("R2"),
+        ])
+        .unwrap();
+        app.remove_sequences(&[1]);
+        assert_eq!(app.alignment.headers.len(), 3);
+        assert_eq!(app.user_ordering.as_ref().unwrap().len(), 3);
+        assert!(!app
+            .user_ordering
+            .as_ref()
+            .unwrap()
+            .contains(&String::from("R2")));
     }
 
     #[test]

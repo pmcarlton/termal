@@ -25,3 +25,6 @@ dist
 *~
 *.aln
 *.tree
+*.svg
+backtr*.osx
+backtrace.log

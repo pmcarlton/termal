@@ -35,6 +35,7 @@
 * Tree panel width now counts Unicode box characters correctly
 * Tree panel junctions now join horizontal segments with right-facing glyphs
 * Duplicate FASTA IDs are now rejected early with a clear error
+* Rejecting sequences now preserves tree ordering without truncating the view
 * Rejecting all sequences now exits cleanly with a message
 * SVG export overwrite confirmation now restores the prompt flow
 * MAFFT tree leaf names now map to headers with spaces/dots normalized and numeric prefixes stripped
