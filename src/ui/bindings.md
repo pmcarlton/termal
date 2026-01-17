@@ -27,7 +27,7 @@ z,Z: next/previous zoom mode
 ## Searching (headers)
 
 "regexp<Ret> : search sequence headers
-[count]n,p   : next / previous header match
+[count]n,p   : next / previous header match (moves cursor)
 [count][,]   : previous / next sequence match
 !            : reject current header match (adds to rejected view, appends to rejected<file>)
 Esc          : cancel search
@@ -86,6 +86,12 @@ i: toggle inverse/direct video
 
 @: open global notes editor (Esc to close; Ctrl-A/Ctrl-E line start/end; Ctrl-B/Ctrl-F word left/right)
 |: open view notes editor (per-view)
+
+## Selection
+
+x: toggle selection on cursor line
+A: select all in view
+X: clear selection
 
 Monochrome direct video is the default.
 

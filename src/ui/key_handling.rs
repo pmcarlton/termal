@@ -160,6 +160,25 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
     }
 }
 
+fn selection_or_cursor_ranks(ui: &UI) -> Vec<usize> {
+    let selected = ui.app.selection_ranks();
+    if !selected.is_empty() {
+        return selected;
+    }
+    ui.app
+        .cursor_rank()
+        .map(|rank| vec![rank])
+        .unwrap_or_default()
+}
+
+fn selected_and_marked_ranks(ui: &UI) -> Vec<usize> {
+    let mut ranks = ui.app.selection_ranks();
+    ranks.extend(ui.app.marked_label_ranks());
+    ranks.sort_unstable();
+    ranks.dedup();
+    ranks
+}
+
 fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
     let mut done = false;
     match key_event.code {
@@ -518,7 +537,7 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
             } else if cmd.trim_start().starts_with("mv") {
                 let arg = cmd.trim_start()[2..].trim();
                 let ranks = if arg.is_empty() {
-                    ui.app.marked_label_ranks()
+                    selected_and_marked_ranks(ui)
                 } else {
                     match parse_rank_list(arg) {
                         Ok(ranks) => ranks,
@@ -1336,6 +1355,11 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         KeyCode::Char('L') => ui.scroll_one_screen_right(count as u16),
         KeyCode::Char('$') => ui.jump_to_end(),
 
+        // Selection
+        KeyCode::Char('x') => ui.app.toggle_selection_on_cursor(),
+        KeyCode::Char('A') => ui.app.select_all_in_view(),
+        KeyCode::Char('X') => ui.app.clear_selection(),
+
         // Absolute Positions
 
         // Visible line
@@ -1462,14 +1486,15 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // ----- Editing -----
         // Filter alignment through external command (à la Vim's '!')
         KeyCode::Char('!') => {
-            if let Some(rank) = ui.app.current_label_match_rank() {
-                let out_path = ui.app.rejected_output_path();
-                match ui.app.reject_sequences(&[rank], &out_path) {
-                    Ok(result) => handle_reject_result(ui, result),
-                    Err(e) => ui.app.error_msg(format!("Write failed: {}", e)),
-                }
-            } else {
-                ui.app.warning_msg("No current label match");
+            let ranks = selection_or_cursor_ranks(ui);
+            if ranks.is_empty() {
+                ui.app.warning_msg("No selection");
+                return;
+            }
+            let out_path = ui.app.rejected_output_path();
+            match ui.app.reject_sequences(&ranks, &out_path) {
+                Ok(result) => handle_reject_result(ui, result),
+                Err(e) => ui.app.error_msg(format!("Write failed: {}", e)),
             }
         }
         KeyCode::Char('W') => {

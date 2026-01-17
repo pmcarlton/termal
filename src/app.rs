@@ -143,6 +143,9 @@ struct ViewState {
     user_ordering: Option<Vec<String>>,
     output_path: PathBuf,
     notes: String,
+    selected_ids: HashSet<usize>,
+    marked_ids: HashSet<usize>,
+    cursor_id: Option<usize>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -368,6 +371,9 @@ pub struct App {
     active_search_ids: HashSet<usize>,
     current_view_output_path: PathBuf,
     rejected_ids: HashSet<usize>,
+    selected_ids: HashSet<usize>,
+    marked_ids: HashSet<usize>,
+    cursor_id: Option<usize>,
 }
 
 impl App {
@@ -419,6 +425,9 @@ impl App {
             user_ordering: self.user_ordering.clone(),
             output_path: self.current_view_output_path.clone(),
             notes: self.view_notes.clone(),
+            selected_ids: self.selected_ids.clone(),
+            marked_ids: self.marked_ids.clone(),
+            cursor_id: self.cursor_id,
         }
     }
 
@@ -468,6 +477,20 @@ impl App {
                 }
             }
         }
+        if let Some(state) = &self.search_state {
+            for rank in &state.match_linenums {
+                if let Some(id) = self.current_view_ids.get(*rank).copied() {
+                    self.marked_ids.insert(id);
+                }
+            }
+            if self.cursor_id.is_none() {
+                if let Some(rank) = state.match_linenums.first().copied() {
+                    if let Some(id) = self.current_view_ids.get(rank).copied() {
+                        self.cursor_id = Some(id);
+                    }
+                }
+            }
+        }
         self.seq_search_state = None;
         if let Some(current) = &view.current_search {
             match SearchKind::from(current.kind) {
@@ -488,6 +511,10 @@ impl App {
         self.recompute_ordering();
         self.current_view_output_path = view.output_path.clone();
         self.view_notes = view.notes.clone();
+        self.selected_ids = view.selected_ids.clone();
+        self.marked_ids = view.marked_ids.clone();
+        self.cursor_id = view.cursor_id;
+        self.prune_selection_and_cursor();
         if self.tree.is_some() {
             self.update_tree_lines_for_selection();
         }
@@ -535,6 +562,20 @@ impl App {
         self.store_current_view_state();
         self.load_view_state(view)?;
         Ok(())
+    }
+
+    fn prune_selection_and_cursor(&mut self) {
+        let allowed: HashSet<usize> = self.current_view_ids.iter().copied().collect();
+        self.selected_ids.retain(|id| allowed.contains(id));
+        self.marked_ids.retain(|id| allowed.contains(id));
+        if let Some(id) = self.cursor_id {
+            if !allowed.contains(&id) {
+                self.cursor_id = None;
+            }
+        }
+        if self.cursor_id.is_none() {
+            self.cursor_id = self.current_view_ids.first().copied();
+        }
     }
 
     pub fn delete_view(&mut self, name: &str) -> Result<(), TermalError> {
@@ -618,6 +659,9 @@ impl App {
             user_ordering: self.user_ordering.clone(),
             output_path: self.output_path_for_view(name),
             notes: String::new(),
+            selected_ids: self.selected_ids.clone(),
+            marked_ids: self.marked_ids.clone(),
+            cursor_id: self.cursor_id,
         };
         self.views.insert(name.to_string(), view);
         self.view_order.push(name.to_string());
@@ -655,6 +699,9 @@ impl App {
                 user_ordering: None,
                 output_path: self.output_path_for_view("filtered"),
                 notes: String::new(),
+                selected_ids: HashSet::new(),
+                marked_ids: HashSet::new(),
+                cursor_id: (0..self.records.len()).next(),
             };
             self.views.insert(String::from("filtered"), view);
             self.view_order.push(String::from("filtered"));
@@ -673,6 +720,9 @@ impl App {
                 user_ordering: None,
                 output_path: self.output_path_for_view("rejected"),
                 notes: String::new(),
+                selected_ids: HashSet::new(),
+                marked_ids: HashSet::new(),
+                cursor_id: None,
             };
             self.views.insert(String::from("rejected"), view);
             self.view_order.push(String::from("rejected"));
@@ -766,6 +816,7 @@ impl App {
             self.reverse_ordering = (0..len).collect();
             self.refresh_saved_searches();
             self.recompute_ordering();
+            self.prune_selection_and_cursor();
         }
         Ok(added)
     }
@@ -815,6 +866,9 @@ impl App {
             user_ordering: usr_ord.clone(),
             output_path: original_output_path.clone(),
             notes: String::new(),
+            selected_ids: HashSet::new(),
+            marked_ids: HashSet::new(),
+            cursor_id: (0..len).next(),
         };
         active_search_ids.extend(original_view.active_search_ids.iter().copied());
         views.insert(String::from("original"), original_view);
@@ -849,6 +903,9 @@ impl App {
             active_search_ids,
             current_view_output_path: original_output_path,
             rejected_ids: HashSet::new(),
+            selected_ids: HashSet::new(),
+            marked_ids: HashSet::new(),
+            cursor_id: (0..len).next(),
         }
     }
 
@@ -942,6 +999,17 @@ impl App {
                     } else {
                         Some(view.notes.clone())
                     },
+                    selected_ids: if view.selected_ids.is_empty() {
+                        None
+                    } else {
+                        Some(view.selected_ids.iter().copied().collect())
+                    },
+                    marked_ids: if view.marked_ids.is_empty() {
+                        None
+                    } else {
+                        Some(view.marked_ids.iter().copied().collect())
+                    },
+                    cursor_id: view.cursor_id,
                 });
             }
         }
@@ -1018,6 +1086,9 @@ impl App {
                     user_ordering: view.user_ordering,
                     output_path,
                     notes: view.notes.unwrap_or_default(),
+                    selected_ids: view.selected_ids.unwrap_or_default().into_iter().collect(),
+                    marked_ids: view.marked_ids.unwrap_or_default().into_iter().collect(),
+                    cursor_id: view.cursor_id,
                 };
                 self.view_order.push(view.name.clone());
                 self.views.insert(view.name, view_state);
@@ -1051,6 +1122,9 @@ impl App {
                 user_ordering: None,
                 output_path: self.output_path_for_view("original"),
                 notes: String::new(),
+                selected_ids: HashSet::new(),
+                marked_ids: HashSet::new(),
+                cursor_id: original_ids.first().copied(),
             };
             self.view_order.push(String::from("original"));
             self.views.insert(String::from("original"), view);
@@ -1253,6 +1327,16 @@ impl App {
         // self.debug_msg("Regex search");
         match compute_label_search_state(&self.alignment.headers, pattern) {
             Ok(state) => {
+                if let Some(first) = state.match_linenums.first().copied() {
+                    if let Some(id) = self.current_view_ids.get(first).copied() {
+                        self.cursor_id = Some(id);
+                    }
+                }
+                for rank in &state.match_linenums {
+                    if let Some(id) = self.current_view_ids.get(*rank).copied() {
+                        self.marked_ids.insert(id);
+                    }
+                }
                 self.search_state = Some(state);
                 self.label_search_source = Some(LabelSearchSource::Regex);
                 self.tree_selection_range = None;
@@ -1274,19 +1358,10 @@ impl App {
                 "Sequence number out of range",
             )));
         }
-        let header = self.alignment.headers[rank].clone();
-        let pattern = format!("^{}$", regex::escape(&header));
-        match compute_label_search_state(&self.alignment.headers, &pattern) {
-            Ok(mut state) => {
-                state.current = 0;
-                self.search_state = Some(state);
-                self.label_search_source = Some(LabelSearchSource::Regex);
-                self.tree_selection_range = None;
-                self.update_tree_lines_for_selection();
-                Ok(())
-            }
-            Err(e) => Err(TermalError::Format(format!("Malformed regex {}.", e))),
+        if let Some(id) = self.current_view_ids.get(rank).copied() {
+            self.cursor_id = Some(id);
         }
+        Ok(())
     }
 
     pub fn current_label_match_screenlinenum(&self) -> Option<usize> {
@@ -1311,6 +1386,11 @@ impl App {
                         (state.current as isize + count).rem_euclid(nb_matches as isize) as usize;
                     //let new = (state.current + count) % nb_matches.;
                     self.search_state.as_mut().unwrap().current = new;
+                    if let Some(rank) = self.current_label_match_rank() {
+                        if let Some(id) = self.current_view_ids.get(rank).copied() {
+                            self.cursor_id = Some(id);
+                        }
+                    }
                     self.info_msg(format!(
                         "match #{}/{}",
                         self.search_state.as_ref().unwrap().current + 1, // +1 <- user is 1-based
@@ -1332,19 +1412,77 @@ impl App {
             .and_then(|state| state.match_linenums.get(state.current).copied())
     }
 
-    pub fn is_current_label_match(&self, rank: usize) -> bool {
-        self.current_label_match_rank()
-            .map(|current| current == rank)
-            .unwrap_or(false)
-    }
-
     // Returns true IFF there is a search result AND header of rank `rank` (i.e., without
     // correction for order) is a match.
-    pub fn is_label_search_match(&self, rank: usize) -> bool {
-        if let Some(state) = &self.search_state {
-            state.hdr_match_status[rank]
+    pub fn cursor_rank(&self) -> Option<usize> {
+        let id = self.cursor_id?;
+        self.current_view_ids
+            .iter()
+            .position(|seq_id| *seq_id == id)
+    }
+
+    pub fn is_cursor_rank(&self, rank: usize) -> bool {
+        self.cursor_rank().map(|cur| cur == rank).unwrap_or(false)
+    }
+
+    pub fn is_label_marked(&self, rank: usize) -> bool {
+        if let Some(id) = self.current_view_ids.get(rank) {
+            self.marked_ids.contains(id)
         } else {
             false
+        }
+    }
+
+    pub fn is_label_selected(&self, rank: usize) -> bool {
+        if let Some(id) = self.current_view_ids.get(rank) {
+            self.selected_ids.contains(id)
+        } else {
+            false
+        }
+    }
+
+    pub fn selection_ranks(&self) -> Vec<usize> {
+        self.current_view_ids
+            .iter()
+            .enumerate()
+            .filter_map(|(rank, id)| self.selected_ids.contains(id).then_some(rank))
+            .collect()
+    }
+
+    pub fn marked_label_ranks(&self) -> Vec<usize> {
+        self.current_view_ids
+            .iter()
+            .enumerate()
+            .filter_map(|(rank, id)| self.marked_ids.contains(id).then_some(rank))
+            .collect()
+    }
+
+    pub fn toggle_selection_on_cursor(&mut self) {
+        let Some(id) = self.cursor_id else {
+            return;
+        };
+        if !self.current_view_ids.contains(&id) {
+            return;
+        }
+        if !self.selected_ids.insert(id) {
+            self.selected_ids.remove(&id);
+        }
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.selected_ids = self.selected_ids.clone();
+        }
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selected_ids.clear();
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.selected_ids.clear();
+        }
+    }
+
+    pub fn select_all_in_view(&mut self) {
+        self.selected_ids = self.current_view_ids.iter().copied().collect();
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.selected_ids = self.selected_ids.clone();
         }
     }
 
@@ -1366,17 +1504,20 @@ impl App {
             self.alignment.headers.len(),
         );
         state.current = 0;
+        if let Some(first) = state.match_linenums.first().copied() {
+            if let Some(id) = self.current_view_ids.get(first).copied() {
+                self.cursor_id = Some(id);
+            }
+        }
+        for rank in &state.match_linenums {
+            if let Some(id) = self.current_view_ids.get(*rank).copied() {
+                self.marked_ids.insert(id);
+            }
+        }
         self.search_state = Some(state);
         self.label_search_source = Some(LabelSearchSource::Tree);
         self.tree_selection_range = Some(tree_range);
         self.update_tree_lines_for_selection();
-    }
-
-    pub fn marked_label_ranks(&self) -> Vec<usize> {
-        self.search_state
-            .as_ref()
-            .map(|state| state.match_linenums.clone())
-            .unwrap_or_default()
     }
 
     pub fn regex_search_sequences(&mut self, pattern: &str) {
@@ -1630,6 +1771,7 @@ impl App {
         let label_search_source = self.label_search_source;
 
         let mut removed: Vec<RemovedSeq> = Vec::new();
+        let mut removed_ids: Vec<usize> = Vec::new();
         let mut sorted: Vec<usize> = ranks.to_vec();
         sorted.sort_unstable_by(|a, b| b.cmp(a));
         for rank in sorted {
@@ -1638,6 +1780,7 @@ impl App {
                 if rank < self.current_view_ids.len() {
                     self.current_view_ids.remove(rank);
                 }
+                removed_ids.push(id);
                 removed.push(RemovedSeq {
                     rank,
                     id,
@@ -1662,6 +1805,16 @@ impl App {
         );
         if let Some(view) = self.views.get_mut(&self.current_view) {
             view.sequence_ids = self.current_view_ids.clone();
+        }
+        for id in removed_ids {
+            self.selected_ids.remove(&id);
+            self.marked_ids.remove(&id);
+            if self.cursor_id == Some(id) {
+                self.cursor_id = None;
+            }
+        }
+        if self.cursor_id.is_none() {
+            self.cursor_id = self.current_view_ids.first().copied();
         }
         removed
     }
@@ -1792,6 +1945,7 @@ impl App {
                 if let Some(view) = self.views.get_mut(&self.current_view) {
                     view.sequence_ids = self.current_view_ids.clone();
                 }
+                self.prune_selection_and_cursor();
                 return Ok(RejectResult {
                     count: removed.len(),
                     action: RejectAction::RemovedFromView,
@@ -2816,8 +2970,8 @@ mod tests {
         let aln = Alignment::from_vecs(hdrs, seqs);
         let mut app = App::new("TEST", aln, None);
         app.select_label_by_rank(1).unwrap();
-        assert_eq!(app.current_label_match_rank(), Some(1));
-        assert!(app.is_label_search_match(1));
+        assert_eq!(app.cursor_rank(), Some(1));
+        assert!(!app.is_label_marked(1));
     }
 
     #[test]
@@ -2896,8 +3050,8 @@ mod tests {
         let aln = Alignment::from_vecs(hdrs, seqs);
         let mut app = App::new("TEST", aln, None);
         app.regex_search_labels("^a");
-        assert!(app.is_label_search_match(0));
-        assert!(app.is_label_search_match(1));
+        assert!(app.is_label_marked(0));
+        assert!(app.is_label_marked(1));
     }
 
     #[test]

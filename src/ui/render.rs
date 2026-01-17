@@ -100,15 +100,17 @@ fn zoom_in_lbl_text<'a>(ui: &UI) -> Vec<Line<'a>> {
         .ordering
         .iter()
         .map(|i| {
-            let hl_style = if ui.app.is_label_search_match(*i) {
-                if ui.app.is_current_label_match(*i) {
-                    Style::default().bg(Color::Red).fg(Color::Black)
-                } else {
-                    Style::default().bg(Color::White).fg(Color::Black)
-                }
+            let mut hl_style = if ui.app.is_label_marked(*i) {
+                Style::default().bg(Color::White).fg(Color::Black)
             } else {
                 Style::default()
             };
+            if ui.app.is_cursor_rank(*i) {
+                hl_style = Style::default().bg(Color::Red).fg(Color::Black);
+            }
+            if ui.app.is_label_selected(*i) {
+                hl_style = hl_style.add_modifier(Modifier::BOLD);
+            }
             let span = Span::styled(ui.app.alignment.headers[*i].clone(), hl_style);
             Line::from(span)
         })
@@ -120,15 +122,17 @@ fn zoom_out_lbl_text<'a>(ui: &UI) -> Vec<Line<'a>> {
 
     for i in retained_seq_ndx(ui) {
         let rank = ui.app.ordering[i];
-        let hl_style = if ui.app.is_label_search_match(rank) {
-            if ui.app.is_current_label_match(rank) {
-                Style::default().bg(Color::Red).fg(Color::Black)
-            } else {
-                Style::default().bg(Color::White).fg(Color::Black)
-            }
+        let mut hl_style = if ui.app.is_label_marked(rank) {
+            Style::default().bg(Color::White).fg(Color::Black)
         } else {
             Style::default()
         };
+        if ui.app.is_cursor_rank(rank) {
+            hl_style = Style::default().bg(Color::Red).fg(Color::Black);
+        }
+        if ui.app.is_label_selected(rank) {
+            hl_style = hl_style.add_modifier(Modifier::BOLD);
+        }
         ztext.push(Line::from(Span::styled(
             ui.app.alignment.headers[rank].clone(),
             hl_style,
@@ -448,7 +452,7 @@ fn render_alignment_pane(f: &mut Frame, aln_chunk: Rect, ui: &UI) {
 
     let style_lut = build_style_lut(&ui);
     let (highlights, highlight_config) = ui.search_highlights();
-    let underline_seq_index = ui.app.current_label_match_rank();
+    let underline_seq_index = ui.app.cursor_rank();
     let base_style = Style::default().bg(Color::Black);
 
     match ui.zoom_level {

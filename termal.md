@@ -143,8 +143,8 @@ Other
 Searching
 ---------
 
-* "regexp<Ret> : search sequence headers
-* n,p          : next / previous header match (current match highlighted in red)
+* "regexp<Ret> : search sequence headers (marks matches)
+* n,p          : next / previous header match (moves cursor)
 * !            : reject current header match (adds to rejected view, appends to rejected<file>)
 * /regexp<Ret> : search sequences
 * \\pattern<Ret> : search sequences (EMBOSS fuzzpro/fuzznuc; optional leading "N " sets -pmis)
@@ -183,6 +183,16 @@ Filtering
 ---------
 
 * W            : write the current view to its output file (orig/filt/rej/view tag)
+
+Selection
+---------
+
+* Cursor highlights one sequence for visual inspection.
+* Marked matches can stack from multiple searches or tree selections.
+* Selection is per-view and used for actions; if empty, actions use the cursor.
+* x            : toggle selection on cursor line
+* A            : select all in view
+* X            : clear selection
 
 Views
 -----

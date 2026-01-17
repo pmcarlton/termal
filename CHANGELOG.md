@@ -35,6 +35,7 @@
 * Tools/colors configuration is unified in `.termalconfig` (searched in `$HOME`, then the current directory)
 * Tree selection now renders with heavy box-drawing for the selected subtree
 * Alignment title now includes the current view name
+* Header search now marks matches without changing selection; actions use selection or cursor
 
 ### Fixed
 
