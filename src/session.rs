@@ -11,6 +11,8 @@ pub struct SessionFile {
     pub source_filename: String,
     pub headers: Vec<String>,
     pub sequences: Vec<String>,
+    pub views: Option<Vec<SessionView>>,
+    pub current_view: Option<String>,
     pub tree_lines: Option<Vec<String>>,
     pub tree_newick: Option<String>,
     pub saved_searches: Vec<SessionSearchEntry>,
@@ -29,20 +31,32 @@ pub struct SessionSearchEntry {
     pub color: (u8, u8, u8),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SessionCurrentSearch {
     pub kind: SessionSearchKind,
     pub pattern: String,
     pub current_match: Option<usize>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SessionLabelSearch {
     pub pattern: String,
     pub current: Option<usize>,
     pub matches: Option<Vec<usize>>,
     pub source: Option<SessionLabelSource>,
     pub tree_range: Option<(usize, usize)>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionView {
+    pub name: String,
+    pub sequence_ids: Vec<usize>,
+    pub tree_newick: Option<String>,
+    pub tree_lines: Option<Vec<String>>,
+    pub current_search: Option<SessionCurrentSearch>,
+    pub label_search: Option<SessionLabelSearch>,
+    pub active_search_ids: Vec<usize>,
+    pub user_ordering: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]

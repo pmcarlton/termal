@@ -21,7 +21,7 @@ use crate::{
     seq::fasta::read_fasta_file,
     session::{
         SessionCurrentSearch, SessionFile, SessionLabelSearch, SessionLabelSource,
-        SessionSearchEntry, SessionSearchKind,
+        SessionSearchEntry, SessionSearchKind, SessionView,
     },
     tree::{parse_newick, tree_lines_and_order, tree_lines_and_order_with_selection, TreeNode},
 };
@@ -118,15 +118,39 @@ pub struct SearchState {
 #[derive(Clone)]
 struct RemovedSeq {
     rank: usize,
+    id: usize,
     header: String,
     sequence: String,
 }
 
+#[derive(Clone)]
 struct LastReject {
     path: PathBuf,
     backup: Option<PathBuf>,
     removed: Vec<RemovedSeq>,
     previous_user_ordering: Option<Vec<String>>,
+    modified_view: bool,
+}
+
+#[derive(Clone)]
+struct SeqRecord {
+    header: String,
+    sequence: String,
+}
+
+#[derive(Clone)]
+struct ViewState {
+    name: String,
+    sequence_ids: Vec<usize>,
+    tree: Option<TreeNode>,
+    tree_newick: Option<String>,
+    tree_lines: Vec<String>,
+    tree_panel_width: u16,
+    current_search: Option<SessionCurrentSearch>,
+    label_search: Option<SessionLabelSearch>,
+    active_search_ids: HashSet<usize>,
+    user_ordering: Option<Vec<String>>,
+    output_path: PathBuf,
 }
 
 pub struct SeqSearchState {
@@ -299,6 +323,11 @@ impl TermalConfig {
 pub struct App {
     pub filename: String,
     pub alignment: Alignment,
+    records: Vec<SeqRecord>,
+    views: HashMap<String, ViewState>,
+    view_order: Vec<String>,
+    current_view: String,
+    current_view_ids: Vec<usize>,
     ordering_criterion: SeqOrdering,
     metric: Metric,
     // Specifies in which order the aligned sequences should be displayed. The elements of this Vec
@@ -320,15 +349,295 @@ pub struct App {
     mafft_bin_dir: Option<PathBuf>,
     last_reject: Option<LastReject>,
     notes: String,
-    filtered_output_path: PathBuf,
-    rejected_output_path: PathBuf,
     tree_lines: Vec<String>,
     tree_panel_width: u16,
     tree: Option<TreeNode>,
     tree_newick: Option<String>,
+    active_search_ids: HashSet<usize>,
+    current_view_output_path: PathBuf,
+    rejected_ids: HashSet<usize>,
 }
 
 impl App {
+    fn build_alignment_for_ids(&self, ids: &[usize]) -> Alignment {
+        let mut headers = Vec::with_capacity(ids.len());
+        let mut sequences = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(record) = self.records.get(*id) {
+                headers.push(record.header.clone());
+                sequences.push(record.sequence.clone());
+            }
+        }
+        Alignment::from_vecs(headers, sequences)
+    }
+
+    fn sync_search_registry_enabled(&mut self) {
+        let enabled_ids = self.active_search_ids.clone();
+        for entry in &mut self.search_registry.searches {
+            entry.enabled = enabled_ids.contains(&entry.id);
+        }
+    }
+
+    fn capture_current_view_state(&self) -> ViewState {
+        let current_search = self
+            .seq_search_state
+            .as_ref()
+            .map(|state| SessionCurrentSearch {
+                kind: SessionSearchKind::from(state.kind),
+                pattern: state.pattern.clone(),
+                current_match: Some(state.current_match),
+            });
+        let label_search = self.search_state.as_ref().map(|state| SessionLabelSearch {
+            pattern: state.pattern.clone(),
+            current: Some(state.current),
+            matches: Some(state.match_linenums.clone()),
+            source: self.label_search_source.map(SessionLabelSource::from),
+            tree_range: self.tree_selection_range,
+        });
+        ViewState {
+            name: self.current_view.clone(),
+            sequence_ids: self.current_view_ids.clone(),
+            tree: self.tree.clone(),
+            tree_newick: self.tree_newick.clone(),
+            tree_lines: self.tree_lines.clone(),
+            tree_panel_width: self.tree_panel_width,
+            current_search,
+            label_search,
+            active_search_ids: self.active_search_ids.clone(),
+            user_ordering: self.user_ordering.clone(),
+            output_path: self.current_view_output_path.clone(),
+        }
+    }
+
+    fn store_current_view_state(&mut self) {
+        let view = self.capture_current_view_state();
+        self.views.insert(self.current_view.clone(), view);
+    }
+
+    fn load_view_state(&mut self, view: ViewState) -> Result<(), TermalError> {
+        self.current_view = view.name.clone();
+        self.current_view_ids = view.sequence_ids.clone();
+        self.alignment = self.build_alignment_for_ids(&self.current_view_ids);
+        let len = self.alignment.num_seq();
+        self.ordering = (0..len).collect();
+        self.reverse_ordering = (0..len).collect();
+        self.user_ordering = view.user_ordering.clone();
+        self.tree = view.tree.clone();
+        self.tree_newick = view.tree_newick.clone();
+        self.tree_lines = view.tree_lines.clone();
+        self.tree_panel_width = view.tree_panel_width;
+        self.tree_selection_range = view
+            .label_search
+            .as_ref()
+            .and_then(|label| label.tree_range);
+        self.label_search_source = view
+            .label_search
+            .as_ref()
+            .and_then(|label| label.source)
+            .map(LabelSearchSource::from);
+        self.search_state = None;
+        if let Some(label) = &view.label_search {
+            if let Some(matches) = label.matches.clone() {
+                let state = build_label_state_from_matches(
+                    label.pattern.clone(),
+                    matches,
+                    self.alignment.headers.len(),
+                );
+                self.search_state = Some(state);
+            } else {
+                self.regex_search_labels(&label.pattern);
+            }
+            if let Some(state) = &mut self.search_state {
+                if let Some(idx) = label.current {
+                    if idx < state.match_linenums.len() {
+                        state.current = idx;
+                    }
+                }
+            }
+        }
+        self.seq_search_state = None;
+        if let Some(current) = &view.current_search {
+            match SearchKind::from(current.kind) {
+                SearchKind::Regex => self.regex_search_sequences(&current.pattern),
+                SearchKind::Emboss => self.emboss_search_sequences(&current.pattern),
+            }
+            if let Some(state) = &mut self.seq_search_state {
+                if let Some(idx) = current.current_match {
+                    if idx < state.matches.len() {
+                        state.current_match = idx;
+                    }
+                }
+            }
+        }
+        self.active_search_ids = view.active_search_ids.clone();
+        self.sync_search_registry_enabled();
+        self.refresh_saved_searches();
+        self.recompute_ordering();
+        self.current_view_output_path = view.output_path.clone();
+        if self.tree.is_some() {
+            self.update_tree_lines_for_selection();
+        }
+        Ok(())
+    }
+
+    pub fn current_view_name(&self) -> &str {
+        &self.current_view
+    }
+
+    pub fn view_names(&self) -> &[String] {
+        &self.view_order
+    }
+
+    pub fn switch_view(&mut self, name: &str) -> Result<(), TermalError> {
+        if name == self.current_view {
+            return Ok(());
+        }
+        let view = self
+            .views
+            .get(name)
+            .cloned()
+            .ok_or_else(|| TermalError::Format(format!("Unknown view {}", name)))?;
+        self.store_current_view_state();
+        self.load_view_state(view)?;
+        Ok(())
+    }
+
+    fn sanitize_view_tag(name: &str) -> String {
+        let mut out: String = name
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .collect();
+        if out.is_empty() {
+            out.push_str("view");
+        }
+        out
+    }
+
+    fn output_path_for_view(&self, name: &str) -> PathBuf {
+        let tag = match name {
+            "filtered" => "filt".to_string(),
+            "rejected" => "rej".to_string(),
+            "original" => "orig".to_string(),
+            _ => Self::sanitize_view_tag(name),
+        };
+        next_available_output_path(&self.filename, &tag)
+    }
+
+    pub fn create_view_from_current(&mut self, name: &str) -> Result<(), TermalError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(TermalError::Format(String::from(
+                "View name cannot be empty",
+            )));
+        }
+        if self.views.contains_key(name) {
+            return Err(TermalError::Format(format!("View {} already exists", name)));
+        }
+        let view = ViewState {
+            name: name.to_string(),
+            sequence_ids: self.current_view_ids.clone(),
+            tree: self.tree.clone(),
+            tree_newick: self.tree_newick.clone(),
+            tree_lines: self.tree_lines.clone(),
+            tree_panel_width: self.tree_panel_width,
+            current_search: self
+                .seq_search_state
+                .as_ref()
+                .map(|state| SessionCurrentSearch {
+                    kind: SessionSearchKind::from(state.kind),
+                    pattern: state.pattern.clone(),
+                    current_match: Some(state.current_match),
+                }),
+            label_search: self.search_state.as_ref().map(|state| SessionLabelSearch {
+                pattern: state.pattern.clone(),
+                current: Some(state.current),
+                matches: None,
+                source: self.label_search_source.map(SessionLabelSource::from),
+                tree_range: self.tree_selection_range,
+            }),
+            active_search_ids: self.active_search_ids.clone(),
+            user_ordering: self.user_ordering.clone(),
+            output_path: self.output_path_for_view(name),
+        };
+        self.views.insert(name.to_string(), view);
+        self.view_order.push(name.to_string());
+        Ok(())
+    }
+
+    fn ensure_filtered_rejected_views(&mut self) {
+        let current_search = self
+            .seq_search_state
+            .as_ref()
+            .map(|state| SessionCurrentSearch {
+                kind: SessionSearchKind::from(state.kind),
+                pattern: state.pattern.clone(),
+                current_match: Some(state.current_match),
+            });
+        let label_search = self.search_state.as_ref().map(|state| SessionLabelSearch {
+            pattern: state.pattern.clone(),
+            current: Some(state.current),
+            matches: None,
+            source: self.label_search_source.map(SessionLabelSource::from),
+            tree_range: self.tree_selection_range,
+        });
+        let active_search_ids = self.active_search_ids.clone();
+        if !self.views.contains_key("filtered") {
+            let view = ViewState {
+                name: String::from("filtered"),
+                sequence_ids: (0..self.records.len()).collect(),
+                tree: None,
+                tree_newick: None,
+                tree_lines: Vec::new(),
+                tree_panel_width: 0,
+                current_search: current_search.clone(),
+                label_search: label_search.clone(),
+                active_search_ids: active_search_ids.clone(),
+                user_ordering: None,
+                output_path: self.output_path_for_view("filtered"),
+            };
+            self.views.insert(String::from("filtered"), view);
+            self.view_order.push(String::from("filtered"));
+        }
+        if !self.views.contains_key("rejected") {
+            let view = ViewState {
+                name: String::from("rejected"),
+                sequence_ids: Vec::new(),
+                tree: None,
+                tree_newick: None,
+                tree_lines: Vec::new(),
+                tree_panel_width: 0,
+                current_search,
+                label_search,
+                active_search_ids,
+                user_ordering: None,
+                output_path: self.output_path_for_view("rejected"),
+            };
+            self.views.insert(String::from("rejected"), view);
+            self.view_order.push(String::from("rejected"));
+        }
+    }
+
+    fn rebuild_filtered_rejected_views(&mut self) {
+        let all_ids: Vec<usize> = (0..self.records.len()).collect();
+        if let Some(filtered) = self.views.get_mut("filtered") {
+            filtered.sequence_ids = all_ids
+                .iter()
+                .copied()
+                .filter(|id| !self.rejected_ids.contains(id))
+                .collect();
+        }
+        if let Some(rejected) = self.views.get_mut("rejected") {
+            rejected.sequence_ids = all_ids
+                .iter()
+                .copied()
+                .filter(|id| self.rejected_ids.contains(id))
+                .collect();
+        }
+    }
+
+    pub fn current_view_output_path(&self) -> &Path {
+        &self.current_view_output_path
+    }
     pub fn from_session_file(path: &Path) -> Result<Self, TermalError> {
         let contents = fs::read_to_string(path)?;
         let session: SessionFile = serde_json::from_str(&contents)
@@ -345,17 +654,46 @@ impl App {
     }
     pub fn new(path: &str, alignment: Alignment, usr_ord: Option<Vec<String>>) -> Self {
         let len = alignment.num_seq();
+        let records: Vec<SeqRecord> = alignment
+            .headers
+            .iter()
+            .cloned()
+            .zip(alignment.sequences.iter().cloned())
+            .enumerate()
+            .map(|(_id, (header, sequence))| SeqRecord { header, sequence })
+            .collect();
         let cur_msg = CurrentMessage {
             prefix: String::from(""),
             message: String::from(""),
             kind: MessageKind::Info,
         };
         let search_color_config = SearchColorConfig::default();
-        let filtered_output_path = next_available_output_path(path, "filt");
-        let rejected_output_path = next_available_output_path(path, "rej");
+        let original_output_path = next_available_output_path(path, "orig");
+        let mut views = HashMap::new();
+        let mut active_search_ids = HashSet::new();
+        let original_view = ViewState {
+            name: String::from("original"),
+            sequence_ids: (0..len).collect(),
+            tree: None,
+            tree_newick: None,
+            tree_lines: Vec::new(),
+            tree_panel_width: 0,
+            current_search: None,
+            label_search: None,
+            active_search_ids: HashSet::new(),
+            user_ordering: usr_ord.clone(),
+            output_path: original_output_path.clone(),
+        };
+        active_search_ids.extend(original_view.active_search_ids.iter().copied());
+        views.insert(String::from("original"), original_view);
         App {
             filename: path.to_string(),
             alignment,
+            records,
+            views,
+            view_order: vec![String::from("original")],
+            current_view: String::from("original"),
+            current_view_ids: (0..len).collect(),
             ordering_criterion: SourceFile,
             metric: PctIdWrtConsensus,
             ordering: (0..len).collect(),
@@ -372,12 +710,13 @@ impl App {
             mafft_bin_dir: None,
             last_reject: None,
             notes: String::new(),
-            filtered_output_path,
-            rejected_output_path,
             tree_lines: Vec::new(),
             tree_panel_width: 0,
             tree: None,
             tree_newick: None,
+            active_search_ids,
+            current_view_output_path: original_output_path,
+            rejected_ids: HashSet::new(),
         }
     }
 
@@ -390,17 +729,6 @@ impl App {
 
     pub fn aln_len(&self) -> u16 {
         self.alignment.aln_len().try_into().unwrap()
-    }
-
-    fn ordered_headers_sequences(&self) -> Vec<(String, String)> {
-        self.ordering
-            .iter()
-            .filter_map(|&rank| {
-                let header = self.alignment.headers.get(rank)?;
-                let seq = self.alignment.sequences.get(rank)?;
-                Some((header.clone(), seq.clone()))
-            })
-            .collect()
     }
 
     pub fn default_session_path(&self) -> PathBuf {
@@ -416,7 +744,8 @@ impl App {
         cwd.join(format!("{}.trml", stem))
     }
 
-    pub fn save_session(&self, path: &Path) -> Result<(), TermalError> {
+    pub fn save_session(&mut self, path: &Path) -> Result<(), TermalError> {
+        self.store_current_view_state();
         let session = self.to_session_file();
         let json = serde_json::to_string_pretty(&session)
             .map_err(|e| TermalError::Format(format!("Invalid session JSON: {}", e)))?;
@@ -438,8 +767,12 @@ impl App {
     }
 
     fn to_session_file(&self) -> SessionFile {
-        let ordered = self.ordered_headers_sequences();
-        let (headers, sequences): (Vec<String>, Vec<String>) = ordered.into_iter().unzip();
+        let headers: Vec<String> = self.records.iter().map(|rec| rec.header.clone()).collect();
+        let sequences: Vec<String> = self
+            .records
+            .iter()
+            .map(|rec| rec.sequence.clone())
+            .collect();
         let saved_searches = self
             .saved_searches()
             .iter()
@@ -452,35 +785,37 @@ impl App {
                 color: entry.color,
             })
             .collect();
-        let current_search = self
-            .seq_search_state
-            .as_ref()
-            .map(|state| SessionCurrentSearch {
-                kind: SessionSearchKind::from(state.kind),
-                pattern: state.pattern.clone(),
-                current_match: Some(state.current_match),
-            });
-        let label_search = self.search_state.as_ref().map(|state| SessionLabelSearch {
-            pattern: state.pattern.clone(),
-            current: Some(state.current),
-            matches: Some(state.match_linenums.clone()),
-            source: self.label_search_source.map(SessionLabelSource::from),
-            tree_range: self.tree_selection_range,
-        });
+        let mut views: Vec<SessionView> = Vec::new();
+        for name in &self.view_order {
+            if let Some(view) = self.views.get(name) {
+                views.push(SessionView {
+                    name: view.name.clone(),
+                    sequence_ids: view.sequence_ids.clone(),
+                    tree_newick: view.tree_newick.clone(),
+                    tree_lines: if view.tree_lines.is_empty() {
+                        None
+                    } else {
+                        Some(view.tree_lines.clone())
+                    },
+                    current_search: view.current_search.clone(),
+                    label_search: view.label_search.clone(),
+                    active_search_ids: view.active_search_ids.iter().copied().collect(),
+                    user_ordering: view.user_ordering.clone(),
+                });
+            }
+        }
         SessionFile {
-            version: 2,
+            version: 3,
             source_filename: self.filename.clone(),
             headers,
             sequences,
-            tree_lines: if self.tree_lines.is_empty() {
-                None
-            } else {
-                Some(self.tree_lines.clone())
-            },
-            tree_newick: self.tree_newick.clone(),
+            views: Some(views),
+            current_view: Some(self.current_view.clone()),
+            tree_lines: None,
+            tree_newick: None,
             saved_searches,
-            current_search,
-            label_search,
+            current_search: None,
+            label_search: None,
             notes: if self.notes.is_empty() {
                 None
             } else {
@@ -491,7 +826,15 @@ impl App {
 
     fn apply_session(&mut self, session: SessionFile, filename: String) -> Result<(), TermalError> {
         self.filename = filename;
-        self.alignment = Alignment::from_vecs(session.headers, session.sequences);
+        self.records = session
+            .headers
+            .into_iter()
+            .zip(session.sequences.into_iter())
+            .enumerate()
+            .map(|(_id, (header, sequence))| SeqRecord { header, sequence })
+            .collect();
+        let original_ids: Vec<usize> = (0..self.records.len()).collect();
+        self.alignment = self.build_alignment_for_ids(&original_ids);
         self.ordering_criterion = SourceFile;
         let len = self.alignment.num_seq();
         self.ordering = (0..len).collect();
@@ -499,45 +842,91 @@ impl App {
         self.user_ordering = None;
         self.last_reject = None;
 
-        self.tree_newick = session.tree_newick;
-        if let Some(newick) = &self.tree_newick {
-            let tree = parse_newick(newick)?;
-            let (lines, _order) = tree_lines_and_order(&tree)?;
-            self.tree = Some(tree);
-            self.tree_lines = lines;
+        self.views.clear();
+        self.view_order.clear();
+        self.current_view_ids = original_ids.clone();
+        if let Some(views) = session.views {
+            for view in views {
+                let tree = match &view.tree_newick {
+                    Some(newick) => Some(parse_newick(newick)?),
+                    None => None,
+                };
+                let tree_lines = if let Some(ref tree) = tree {
+                    tree_lines_and_order(tree)?.0
+                } else {
+                    view.tree_lines.clone().unwrap_or_default()
+                };
+                let tree_panel_width = tree_lines
+                    .iter()
+                    .map(|line| line.chars().count())
+                    .max()
+                    .unwrap_or(0)
+                    .min(u16::MAX as usize) as u16;
+                let output_path = self.output_path_for_view(&view.name);
+                let active_search_ids: HashSet<usize> =
+                    view.active_search_ids.iter().copied().collect();
+                let view_state = ViewState {
+                    name: view.name.clone(),
+                    sequence_ids: view.sequence_ids,
+                    tree,
+                    tree_newick: view.tree_newick,
+                    tree_lines,
+                    tree_panel_width,
+                    current_search: view.current_search,
+                    label_search: view.label_search,
+                    active_search_ids,
+                    user_ordering: view.user_ordering,
+                    output_path,
+                };
+                self.view_order.push(view.name.clone());
+                self.views.insert(view.name, view_state);
+            }
         } else {
-            self.tree = None;
-            self.tree_lines = session.tree_lines.unwrap_or_default();
+            let tree = match &session.tree_newick {
+                Some(newick) => Some(parse_newick(newick)?),
+                None => None,
+            };
+            let tree_lines = if let Some(ref tree) = tree {
+                tree_lines_and_order(tree)?.0
+            } else {
+                session.tree_lines.unwrap_or_default()
+            };
+            let tree_panel_width = tree_lines
+                .iter()
+                .map(|line| line.chars().count())
+                .max()
+                .unwrap_or(0)
+                .min(u16::MAX as usize) as u16;
+            let view = ViewState {
+                name: String::from("original"),
+                sequence_ids: original_ids.clone(),
+                tree,
+                tree_newick: session.tree_newick,
+                tree_lines,
+                tree_panel_width,
+                current_search: session.current_search,
+                label_search: session.label_search,
+                active_search_ids: HashSet::new(),
+                user_ordering: None,
+                output_path: self.output_path_for_view("original"),
+            };
+            self.view_order.push(String::from("original"));
+            self.views.insert(String::from("original"), view);
         }
-        self.tree_panel_width = self
-            .tree_lines
-            .iter()
-            .map(|line| line.chars().count())
-            .max()
-            .unwrap_or(0)
-            .min(u16::MAX as usize) as u16;
-        if !self.tree_lines.is_empty() {
-            self.user_ordering = Some(self.alignment.headers.clone());
+        self.current_view = session
+            .current_view
+            .unwrap_or_else(|| String::from("original"));
+        if !self.views.contains_key(&self.current_view) {
+            self.current_view = String::from("original");
         }
+        self.rejected_ids = self
+            .views
+            .get("rejected")
+            .map(|view| view.sequence_ids.iter().copied().collect())
+            .unwrap_or_else(HashSet::new);
 
         self.search_registry = SearchRegistry::new(self.search_color_config.palette.clone());
-        let sequences = self.alignment.sequences.clone();
         for entry in session.saved_searches {
-            let spans_by_seq = match SearchKind::from(entry.kind) {
-                SearchKind::Regex => {
-                    compute_seq_search_state(&sequences, &entry.query, SearchKind::Regex)
-                        .map(|state| state.spans_by_seq)
-                        .unwrap_or_else(|_| vec![Vec::new(); sequences.len()])
-                }
-                SearchKind::Emboss => compute_emboss_search_state(
-                    &self.alignment.headers,
-                    &sequences,
-                    &entry.query,
-                    self.emboss_bin_dir.as_deref(),
-                )
-                .map(|state| state.spans_by_seq)
-                .unwrap_or_else(|_| vec![Vec::new(); sequences.len()]),
-            };
             self.search_registry.searches.push(SearchEntry {
                 id: entry.id,
                 name: entry.name,
@@ -545,57 +934,10 @@ impl App {
                 kind: SearchKind::from(entry.kind),
                 enabled: entry.enabled,
                 color: entry.color,
-                spans_by_seq,
+                spans_by_seq: Vec::new(),
             });
         }
         self.search_registry.next_color_index = self.search_registry.searches.len();
-
-        self.seq_search_state = None;
-        if let Some(current) = session.current_search {
-            match SearchKind::from(current.kind) {
-                SearchKind::Regex => self.regex_search_sequences(&current.pattern),
-                SearchKind::Emboss => self.emboss_search_sequences(&current.pattern),
-            }
-            if let Some(state) = &mut self.seq_search_state {
-                if let Some(idx) = current.current_match {
-                    if idx < state.matches.len() {
-                        state.current_match = idx;
-                    }
-                }
-            }
-        }
-
-        self.search_state = None;
-        self.label_search_source = None;
-        self.tree_selection_range = None;
-        if let Some(label) = session.label_search {
-            let source = label
-                .source
-                .map(LabelSearchSource::from)
-                .unwrap_or(LabelSearchSource::Regex);
-            self.label_search_source = Some(source);
-            self.tree_selection_range = label.tree_range;
-            if let Some(matches) = label.matches {
-                let state = build_label_state_from_matches(
-                    label.pattern.clone(),
-                    matches,
-                    self.alignment.headers.len(),
-                );
-                self.search_state = Some(state);
-            } else {
-                self.regex_search_labels(&label.pattern);
-            }
-            if let Some(state) = &mut self.search_state {
-                if let Some(idx) = label.current {
-                    if idx < state.match_linenums.len() {
-                        state.current = idx;
-                    }
-                }
-            }
-        }
-        if self.tree.is_some() {
-            self.update_tree_lines_for_selection();
-        }
 
         self.notes = session.notes.unwrap_or_default();
 
@@ -604,6 +946,9 @@ impl App {
             message: String::new(),
             kind: MessageKind::Info,
         };
+        if let Some(view) = self.views.get(&self.current_view).cloned() {
+            self.load_view_state(view)?;
+        }
         Ok(())
     }
 
@@ -1006,15 +1351,48 @@ impl App {
         };
         self.search_registry
             .add_search(name, query, kind, state.spans_by_seq);
+        if let Some(entry) = self.search_registry.searches.last() {
+            self.active_search_ids.insert(entry.id);
+            self.sync_search_registry_enabled();
+            if let Some(view) = self.views.get_mut(&self.current_view) {
+                view.active_search_ids = self.active_search_ids.clone();
+            }
+        }
         Ok(())
     }
 
     pub fn delete_saved_search(&mut self, index: usize) -> bool {
-        self.search_registry.delete(index)
+        let removed = self.search_registry.delete(index);
+        if removed {
+            self.active_search_ids = self
+                .search_registry
+                .searches
+                .iter()
+                .filter(|entry| entry.enabled)
+                .map(|entry| entry.id)
+                .collect();
+            if let Some(view) = self.views.get_mut(&self.current_view) {
+                view.active_search_ids = self.active_search_ids.clone();
+            }
+        }
+        removed
     }
 
     pub fn toggle_saved_search(&mut self, index: usize) -> bool {
-        self.search_registry.toggle(index)
+        let toggled = self.search_registry.toggle(index);
+        if toggled {
+            self.active_search_ids = self
+                .search_registry
+                .searches
+                .iter()
+                .filter(|entry| entry.enabled)
+                .map(|entry| entry.id)
+                .collect();
+            if let Some(view) = self.views.get_mut(&self.current_view) {
+                view.active_search_ids = self.active_search_ids.clone();
+            }
+        }
+        toggled
     }
 
     pub fn saved_searches(&self) -> &[SearchEntry] {
@@ -1114,8 +1492,13 @@ impl App {
         sorted.sort_unstable_by(|a, b| b.cmp(a));
         for rank in sorted {
             if let Some(item) = self.alignment.remove_seq(rank) {
+                let id = self.current_view_ids.get(rank).copied().unwrap_or_default();
+                if rank < self.current_view_ids.len() {
+                    self.current_view_ids.remove(rank);
+                }
                 removed.push(RemovedSeq {
                     rank,
+                    id,
                     header: item.0,
                     sequence: item.1,
                 });
@@ -1135,6 +1518,9 @@ impl App {
             seq_search_kind,
             seq_search_pattern,
         );
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.sequence_ids = self.current_view_ids.clone();
+        }
         removed
     }
 
@@ -1245,6 +1631,26 @@ impl App {
         if ranks.is_empty() {
             return Ok(0);
         }
+        self.ensure_filtered_rejected_views();
+        let mut removed_new: Vec<RemovedSeq> = Vec::new();
+        for &rank in ranks {
+            if let Some(id) = self.current_view_ids.get(rank).copied() {
+                if self.rejected_ids.contains(&id) {
+                    continue;
+                }
+                if let Some(rec) = self.records.get(id) {
+                    removed_new.push(RemovedSeq {
+                        rank,
+                        id,
+                        header: rec.header.clone(),
+                        sequence: rec.sequence.clone(),
+                    });
+                }
+            }
+        }
+        if removed_new.is_empty() {
+            return Ok(0);
+        }
         if let Some(last) = &self.last_reject {
             if let Some(backup) = &last.backup {
                 fs::remove_file(backup).ok();
@@ -1267,11 +1673,7 @@ impl App {
             None
         };
         let previous_user_ordering = self.user_ordering.clone();
-        let removed = self.remove_sequences_with_ranks(ranks);
-        if removed.is_empty() {
-            return Ok(0);
-        }
-        let mut removed_sorted = removed.clone();
+        let mut removed_sorted = removed_new.clone();
         removed_sorted.sort_by_key(|rec| rec.rank);
         let write_result = (|| -> Result<(), TermalError> {
             for rec in &removed_sorted {
@@ -1288,9 +1690,13 @@ impl App {
             if let Some(prev) = previous_user_ordering.clone() {
                 self.user_ordering = Some(prev);
             }
-            for rec in &removed_sorted {
-                self.alignment
-                    .insert_seq(rec.rank, rec.header.clone(), rec.sequence.clone());
+            if self.current_view != "original" {
+                for rec in &removed_sorted {
+                    self.alignment
+                        .insert_seq(rec.rank, rec.header.clone(), rec.sequence.clone());
+                    let idx = rec.rank.min(self.current_view_ids.len());
+                    self.current_view_ids.insert(idx, rec.id);
+                }
             }
             let current_label_header = self
                 .current_label_match_rank()
@@ -1336,13 +1742,38 @@ impl App {
             );
             return Err(e);
         }
-        self.last_reject = Some(LastReject {
-            path: path.to_path_buf(),
-            backup,
-            removed: removed_sorted,
-            previous_user_ordering,
-        });
-        Ok(self.last_reject.as_ref().unwrap().removed.len())
+        for rec in &removed_sorted {
+            self.rejected_ids.insert(rec.id);
+        }
+        self.rebuild_filtered_rejected_views();
+        let removed_len = removed_sorted.len();
+        if self.current_view != "original" {
+            let removed = self.remove_sequences_with_ranks(ranks);
+            if removed.is_empty() {
+                return Ok(0);
+            }
+            let mut removed_sorted = removed.clone();
+            removed_sorted.sort_by_key(|rec| rec.rank);
+            self.last_reject = Some(LastReject {
+                path: path.to_path_buf(),
+                backup,
+                removed: removed_sorted,
+                previous_user_ordering,
+                modified_view: true,
+            });
+            if let Some(view) = self.views.get_mut(&self.current_view) {
+                view.sequence_ids = self.current_view_ids.clone();
+            }
+        } else {
+            self.last_reject = Some(LastReject {
+                path: path.to_path_buf(),
+                backup,
+                removed: removed_sorted,
+                previous_user_ordering,
+                modified_view: false,
+            });
+        }
+        Ok(removed_len)
     }
 
     pub fn undo_last_reject(&mut self) -> Result<usize, TermalError> {
@@ -1358,52 +1789,71 @@ impl App {
             fs::remove_file(&last.path)?;
         }
 
-        let current_label_header = self
-            .current_label_match_rank()
-            .and_then(|rank| self.alignment.headers.get(rank))
-            .cloned();
-        let current_seq_match = self.seq_search_state.as_ref().and_then(|state| {
-            let match_entry = state.matches.get(state.current_match).copied();
-            let header = match_entry.and_then(|m| self.alignment.headers.get(m.seq_index).cloned());
-            let span = match_entry.map(|m| (m.start, m.end));
-            header.zip(span)
-        });
-        let seq_search_kind = self.seq_search_state.as_ref().map(|state| state.kind);
-        let seq_search_pattern = self
-            .seq_search_state
-            .as_ref()
-            .map(|state| state.pattern.clone());
-        let label_search_pattern = self
-            .search_state
-            .as_ref()
-            .map(|state| state.pattern.clone());
-        let label_search_headers = if self.label_search_source == Some(LabelSearchSource::Tree) {
-            self.search_state.as_ref().map(|state| {
-                state
-                    .match_linenums
-                    .iter()
-                    .filter_map(|idx| self.alignment.headers.get(*idx).cloned())
-                    .collect::<Vec<String>>()
-            })
-        } else {
-            None
-        };
-        let label_search_source = self.label_search_source;
-
         for rec in &last.removed {
-            self.alignment
-                .insert_seq(rec.rank, rec.header.clone(), rec.sequence.clone());
+            self.rejected_ids.remove(&rec.id);
         }
-        self.user_ordering = last.previous_user_ordering;
-        self.recompute_search_state(
-            current_label_header,
-            current_seq_match,
-            label_search_pattern,
-            label_search_headers,
-            label_search_source,
-            seq_search_kind,
-            seq_search_pattern,
-        );
+        self.rebuild_filtered_rejected_views();
+        if !last.modified_view {
+            if let Some(view) = self.views.get(&self.current_view).cloned() {
+                self.load_view_state(view)?;
+            }
+        }
+
+        if last.modified_view {
+            let current_label_header = self
+                .current_label_match_rank()
+                .and_then(|rank| self.alignment.headers.get(rank))
+                .cloned();
+            let current_seq_match = self.seq_search_state.as_ref().and_then(|state| {
+                let match_entry = state.matches.get(state.current_match).copied();
+                let header =
+                    match_entry.and_then(|m| self.alignment.headers.get(m.seq_index).cloned());
+                let span = match_entry.map(|m| (m.start, m.end));
+                header.zip(span)
+            });
+            let seq_search_kind = self.seq_search_state.as_ref().map(|state| state.kind);
+            let seq_search_pattern = self
+                .seq_search_state
+                .as_ref()
+                .map(|state| state.pattern.clone());
+            let label_search_pattern = self
+                .search_state
+                .as_ref()
+                .map(|state| state.pattern.clone());
+            let label_search_headers = if self.label_search_source == Some(LabelSearchSource::Tree)
+            {
+                self.search_state.as_ref().map(|state| {
+                    state
+                        .match_linenums
+                        .iter()
+                        .filter_map(|idx| self.alignment.headers.get(*idx).cloned())
+                        .collect::<Vec<String>>()
+                })
+            } else {
+                None
+            };
+            let label_search_source = self.label_search_source;
+
+            for rec in &last.removed {
+                self.alignment
+                    .insert_seq(rec.rank, rec.header.clone(), rec.sequence.clone());
+                let idx = rec.rank.min(self.current_view_ids.len());
+                self.current_view_ids.insert(idx, rec.id);
+            }
+            self.user_ordering = last.previous_user_ordering;
+            self.recompute_search_state(
+                current_label_header,
+                current_seq_match,
+                label_search_pattern,
+                label_search_headers,
+                label_search_source,
+                seq_search_kind,
+                seq_search_pattern,
+            );
+            if let Some(view) = self.views.get_mut(&self.current_view) {
+                view.sequence_ids = self.current_view_ids.clone();
+            }
+        }
         Ok(last.removed.len())
     }
 
@@ -1435,12 +1885,11 @@ impl App {
         Ok(())
     }
 
-    pub fn filtered_path(&self) -> PathBuf {
-        self.filtered_output_path.clone()
-    }
-
-    pub fn rejected_path(&self) -> PathBuf {
-        self.rejected_output_path.clone()
+    pub fn rejected_output_path(&self) -> PathBuf {
+        self.views
+            .get("rejected")
+            .map(|view| view.output_path.clone())
+            .unwrap_or_else(|| self.output_path_for_view("rejected"))
     }
 
     pub fn tree_lines(&self) -> &[String] {
@@ -1549,6 +1998,12 @@ impl App {
             .min(u16::MAX as usize) as u16;
         self.tree = Some(tree);
         self.tree_newick = Some(tree_text);
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.tree = self.tree.clone();
+            view.tree_newick = self.tree_newick.clone();
+            view.tree_lines = self.tree_lines.clone();
+            view.tree_panel_width = self.tree_panel_width;
+        }
         self.recompute_ordering();
 
         fs::remove_file(&input_path).ok();

@@ -106,6 +106,12 @@ enum InputMode {
     ConfirmReject {
         mode: RejectMode,
     },
+    ViewList {
+        selected: usize,
+    },
+    ViewCreate {
+        editor: LineEditor,
+    },
     TreeNav {
         nav: TreeNav,
     },
@@ -824,6 +830,13 @@ impl<'a> UI<'a> {
         }
     }
 
+    pub fn view_create_text(&self) -> String {
+        match &self.input_mode {
+            InputMode::ViewCreate { editor } => editor.text(),
+            _ => String::new(),
+        }
+    }
+
     pub fn search_highlights(&self) -> (Vec<SearchHighlight<'_>>, SearchHighlightConfig) {
         let mut highlights: Vec<SearchHighlight> = Vec::new();
         let config = self.app.search_color_config();
@@ -868,6 +881,13 @@ impl<'a> UI<'a> {
     pub fn session_list_state(&self) -> Option<(usize, &[String])> {
         match &self.input_mode {
             InputMode::SessionList { selected, files } => Some((*selected, files.as_slice())),
+            _ => None,
+        }
+    }
+
+    pub fn view_list_selected(&self) -> Option<usize> {
+        match self.input_mode {
+            InputMode::ViewList { selected } => Some(selected),
             _ => None,
         }
     }

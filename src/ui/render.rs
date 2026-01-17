@@ -774,6 +774,39 @@ fn render_session_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
     f.render_widget(dialog_para, dialog_chunk);
 }
 
+fn render_view_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
+    let dialog_block = Block::default().borders(Borders::ALL).title("Views");
+    let selected = ui.view_list_selected().unwrap_or(0);
+    let views = ui.app.view_names();
+
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from("View"));
+    lines.push(Line::from("----"));
+    for (idx, name) in views.iter().enumerate() {
+        let style = if idx == selected {
+            Style::default().add_modifier(Modifier::REVERSED)
+        } else {
+            Style::default()
+        };
+        let current = if name == ui.app.current_view_name() {
+            format!("* {}", name)
+        } else {
+            format!("  {}", name)
+        };
+        lines.push(Line::styled(current, style));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(
+        "Up/Down to select, Enter to switch, Esc to cancel.",
+    ));
+
+    let dialog_para = Paragraph::new(Text::from(lines))
+        .block(dialog_block)
+        .style(Style::default());
+    f.render_widget(Clear, dialog_chunk);
+    f.render_widget(dialog_para, dialog_chunk);
+}
+
 fn render_notes_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
     let dialog_block = Block::default().borders(Borders::ALL).title("Notes");
     let Some(editor) = ui.notes_state() else {
@@ -880,6 +913,10 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
 
     if let InputMode::SessionList { .. } = ui.input_mode {
         render_session_list_dialog(f, layout_panes.dialog, ui);
+    }
+
+    if let InputMode::ViewList { .. } = ui.input_mode {
+        render_view_list_dialog(f, layout_panes.dialog, ui);
     }
 
     if let InputMode::Notes { .. } = ui.input_mode {

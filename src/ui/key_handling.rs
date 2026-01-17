@@ -10,7 +10,7 @@ use super::{
     InputMode::{
         Command, ConfirmOverwrite, ConfirmReject, ConfirmSessionOverwrite, ExportSvg, Help,
         LabelSearch, Normal, Notes, PendingCount, Search, SearchList, SessionList, SessionSave,
-        TreeNav,
+        TreeNav, ViewCreate, ViewList,
     },
     //SearchDirection,
     {RejectMode, ZoomLevel, UI},
@@ -112,6 +112,8 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         Notes { editor } => handle_notes(ui, key_event, editor),
         ConfirmReject { mode } => handle_confirm_reject(ui, key_event, mode),
         TreeNav { nav } => handle_tree_nav(ui, key_event, nav),
+        ViewList { selected } => handle_view_list(ui, key_event, selected),
+        ViewCreate { editor } => handle_view_create(ui, key_event, editor),
     };
     if ui.has_exit_message() {
         true
@@ -465,13 +467,24 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 ui.input_mode = InputMode::SessionSave { editor };
                 ui.app
                     .argument_msg(String::from("Session: "), ui.session_save_text());
+            } else if cmd.trim() == "vc" {
+                let editor = LineEditor::new();
+                ui.input_mode = InputMode::ViewCreate { editor };
+                ui.app
+                    .argument_msg(String::from("View name: "), String::new());
+            } else if cmd.trim() == "vs" {
+                if ui.app.view_names().is_empty() {
+                    ui.app.warning_msg("No views available");
+                } else {
+                    ui.input_mode = InputMode::ViewList { selected: 0 };
+                }
             } else if cmd.trim() == "rk" {
                 let ranks = ui.app.marked_label_ranks();
                 if ranks.is_empty() {
                     ui.app.warning_msg("No marked sequences");
                     return;
                 }
-                let out_path = ui.app.rejected_path();
+                let out_path = ui.app.rejected_output_path();
                 match ui.app.reject_sequences(&ranks, &out_path) {
                     Ok(count) => {
                         if count == 0 {
@@ -529,7 +542,7 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 let arg = cmd.trim_start()[2..].trim();
                 match parse_rank_list(arg) {
                     Ok(ranks) => {
-                        let out_path = ui.app.rejected_path();
+                        let out_path = ui.app.rejected_output_path();
                         match ui.app.reject_sequences(&ranks, &out_path) {
                             Ok(count) => {
                                 if count == 0 {
@@ -683,6 +696,99 @@ fn handle_search_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {
             if idx < ui.app.saved_searches().len() {
                 ui.input_mode = InputMode::SearchList { selected: idx };
             }
+        }
+        _ => {}
+    }
+}
+
+fn handle_view_list(ui: &mut UI, key_event: KeyEvent, selected: usize) {
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            let len = ui.app.view_names().len();
+            if len == 0 {
+                return;
+            }
+            let new_selected = selected.checked_sub(1).unwrap_or(len - 1);
+            ui.input_mode = InputMode::ViewList {
+                selected: new_selected,
+            };
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            let len = ui.app.view_names().len();
+            if len == 0 {
+                return;
+            }
+            let new_selected = (selected + 1) % len;
+            ui.input_mode = InputMode::ViewList {
+                selected: new_selected,
+            };
+        }
+        KeyCode::Enter => {
+            let views = ui.app.view_names();
+            if let Some(name) = views.get(selected).cloned() {
+                match ui.app.switch_view(&name) {
+                    Ok(()) => {
+                        ui.input_mode = InputMode::Normal;
+                        ui.app.info_msg(format!("View: {}", name));
+                    }
+                    Err(e) => ui.app.error_msg(format!("View switch failed: {}", e)),
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_view_create(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+        }
+        KeyCode::Enter => {
+            let name = editor.text();
+            match ui.app.create_view_from_current(&name) {
+                Ok(()) => {
+                    ui.input_mode = InputMode::Normal;
+                    ui.app.info_msg(format!("Created view {}", name));
+                }
+                Err(e) => {
+                    ui.input_mode = InputMode::ViewCreate { editor };
+                    ui.app.error_msg(format!("View create failed: {}", e));
+                }
+            }
+        }
+        KeyCode::Char(c) if c.is_ascii_graphic() || c == ' ' => {
+            editor.insert_char(c);
+            ui.input_mode = InputMode::ViewCreate { editor };
+            ui.app
+                .argument_msg(String::from("View name: "), ui.view_create_text());
+        }
+        KeyCode::Backspace => {
+            editor.backspace();
+            ui.input_mode = InputMode::ViewCreate { editor };
+            ui.app
+                .argument_msg(String::from("View name: "), ui.view_create_text());
+        }
+        KeyCode::Left => {
+            editor.move_left();
+            ui.input_mode = InputMode::ViewCreate { editor };
+        }
+        KeyCode::Right => {
+            editor.move_right();
+            ui.input_mode = InputMode::ViewCreate { editor };
+        }
+        KeyCode::Home => {
+            editor.move_home();
+            ui.input_mode = InputMode::ViewCreate { editor };
+        }
+        KeyCode::End => {
+            editor.move_end();
+            ui.input_mode = InputMode::ViewCreate { editor };
         }
         _ => {}
     }
@@ -894,7 +1000,7 @@ fn handle_confirm_reject(ui: &mut UI, key_event: KeyEvent, mode: RejectMode) {
 }
 
 fn perform_reject(ui: &mut UI, mode: RejectMode) {
-    let out_path = ui.app.rejected_path();
+    let out_path = ui.app.rejected_output_path();
     let ranks = match mode {
         RejectMode::Current => ui.app.current_seq_match().map(|m| vec![m.seq_index]),
         RejectMode::Matched => ui.app.seq_search_spans().map(|spans| {
@@ -1182,7 +1288,7 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Filter alignment through external command (à la Vim's '!')
         KeyCode::Char('!') => {
             if let Some(rank) = ui.app.current_label_match_rank() {
-                let out_path = ui.app.rejected_path();
+                let out_path = ui.app.rejected_output_path();
                 match ui.app.reject_sequences(&[rank], &out_path) {
                     Ok(count) => {
                         if count == 0 {
@@ -1204,11 +1310,13 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
             }
         }
         KeyCode::Char('W') => {
-            let out_path = ui.app.filtered_path();
+            let out_path = ui.app.current_view_output_path().to_path_buf();
             match ui.app.write_alignment_fasta(&out_path) {
-                Ok(_) => ui
-                    .app
-                    .info_msg(format!("Filtered -> {}", out_path.display())),
+                Ok(_) => ui.app.info_msg(format!(
+                    "View {} -> {}",
+                    ui.app.current_view_name(),
+                    out_path.display()
+                )),
                 Err(e) => ui.app.error_msg(format!("Write failed: {}", e)),
             }
         }

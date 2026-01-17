@@ -144,7 +144,7 @@ Searching
 
 * "regexp<Ret> : search sequence headers
 * n,p          : next / previous header match (current match highlighted in red)
-* !            : reject current header match (remove from view, append to rejected<file>)
+* !            : reject current header match (adds to rejected view, appends to rejected<file>)
 * /regexp<Ret> : search sequences
 * \\pattern<Ret> : search sequences (EMBOSS fuzzpro/fuzznuc; optional leading "N " sets -pmis)
 * [,]          : previous / next sequence match (current match underlined)
@@ -167,6 +167,8 @@ Extended commands (:)
 * :rn<Ret>     : reject by displayed number(s) (e.g., :rn 1,4,6-8)
 * :ss<Ret>     : save session to .trml (prompted, with overwrite confirmation)
 * :sl<Ret>     : load session from .trml (choose from list)
+* :vc<Ret>     : create a new view from the current view (prompts for name)
+* :vs<Ret>     : switch to another view (choose from list)
 
 Tree navigation (:tn)
 ---------------------
@@ -178,7 +180,14 @@ Tree navigation (:tn)
 Filtering
 ---------
 
-* W            : write currently shown alignment to filtered<file>
+* W            : write the current view to its output file (orig/filt/rej/view tag)
+
+Views
+-----
+
+* Views are named collections of sequence IDs, each with its own ordering/tree/search state.
+* Rejection creates "filtered" and "rejected" views automatically.
+* :vc creates a new view from the current view; :vs switches between views.
 
 OPTIONS
 =======

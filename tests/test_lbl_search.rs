@@ -265,6 +265,12 @@ fn test_reject_label_match_in_tree_order() {
             key_handling::handle_key_press(ui, KeyCode::Enter.into());
             key_handling::handle_key_press(ui, utils::keypress('n'));
             key_handling::handle_key_press(ui, utils::keypress('!'));
+            key_handling::handle_key_press(ui, utils::keypress(':'));
+            key_handling::handle_key_press(ui, utils::keypress('v'));
+            key_handling::handle_key_press(ui, utils::keypress('s'));
+            key_handling::handle_key_press(ui, KeyCode::Enter.into());
+            key_handling::handle_key_press(ui, utils::keypress('j'));
+            key_handling::handle_key_press(ui, KeyCode::Enter.into());
             key_handling::handle_key_press(ui, utils::keypress('n'));
 
             terminal
@@ -296,6 +302,12 @@ fn test_reject_and_undo_label_match() {
             key_handling::handle_key_press(ui, KeyCode::Enter.into());
             key_handling::handle_key_press(ui, utils::keypress('n'));
             key_handling::handle_key_press(ui, utils::keypress('!'));
+            key_handling::handle_key_press(ui, utils::keypress(':'));
+            key_handling::handle_key_press(ui, utils::keypress('v'));
+            key_handling::handle_key_press(ui, utils::keypress('s'));
+            key_handling::handle_key_press(ui, KeyCode::Enter.into());
+            key_handling::handle_key_press(ui, utils::keypress('j'));
+            key_handling::handle_key_press(ui, KeyCode::Enter.into());
             assert_eq!(ui.num_sequences(), before - 1);
 
             key_handling::handle_key_press(ui, utils::keypress(':'));

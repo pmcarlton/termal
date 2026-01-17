@@ -9,7 +9,8 @@
 * EMBOSS fuzzy search integration (fuzzpro/fuzznuc) with GFF parsing and `.termalconfig`
 * Optional leading mismatch count for EMBOSS patterns (e.g., `2 PATTERN` -> `-pmis 2`)
 * Configurable search colors via `.termalconfig` and mono-white as the default color mode
-* Header filtering: reject current header match to `rejected<file>` (`!`) and write filtered view to `filtered<file>` (`W`)
+* Header filtering: reject current header match to `rejected<file>` (`!`) and write view output (`W`)
+* Views with per-view ordering/tree/search state, plus `:vc` (create) and `:vs` (switch)
 * README caveat about terminal color schemes affecting ANSI colors
 * Clustal alignment input format (`-f clustal`)
 * Wishlist document for future enhancements

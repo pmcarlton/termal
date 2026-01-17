@@ -29,7 +29,7 @@ z,Z: next/previous zoom mode
 "regexp<Ret> : search sequence headers
 [count]n,p   : next / previous header match
 [count][,]   : previous / next sequence match
-!            : reject current header match (remove from view, append to rejected<file>)
+!            : reject current header match (adds to rejected view, appends to rejected<file>)
 Esc          : cancel search
 
 ## Searching (sequences)
@@ -55,6 +55,8 @@ P            : save current search and clear its highlights
 :rn<Ret>     : reject by displayed number(s) (e.g., :rn 1,4,6-8)
 :ss<Ret>     : save session to .trml (prompted, with overwrite confirmation)
 :sl<Ret>     : load session from .trml (choose from list)
+:vc<Ret>     : create a new view from the current view (prompts for name)
+:vs<Ret>     : switch to another view (choose from list)
 
 ## Tree navigation
 
@@ -64,7 +66,7 @@ Esc               : exit tree navigation (marks selected leaves)
 
 ## Filtering
 
-W            : write currently shown alignment to filtered<file>
+W            : write current view to its output file (orig/filt/rej/view tag)
 
 ## Adjusting the Panes
 
