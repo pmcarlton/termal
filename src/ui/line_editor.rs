@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2025 Thomas Junier
+// Copyright (c) 2026 Peter Carlton
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineEditor {
