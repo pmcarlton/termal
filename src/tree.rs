@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Peter Carlton
+// Modifications (c) 2026 Peter Carlton
 
 use crate::errors::TermalError;
 
