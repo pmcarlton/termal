@@ -92,6 +92,8 @@ i: toggle inverse/direct video
 x: toggle selection on cursor line
 A: select all in view
 X: clear selection
+:cm<Ret> : clear marks
+:cc<Ret> : clear cursor highlight
 
 Monochrome direct video is the default.
 

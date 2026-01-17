@@ -110,9 +110,6 @@ pub struct SearchState {
     // there are _matches_.
     pub match_linenums: Vec<usize>,
     pub current: usize,
-    // Whether a header matches or not; used when iterating over all headers and determining
-    // whether to highlight or not. As many elements as there are sequences (and hence headers) in the alignment.
-    hdr_match_status: Vec<bool>,
 }
 
 #[derive(Clone)]
@@ -1486,6 +1483,20 @@ impl App {
         }
     }
 
+    pub fn clear_marks(&mut self) {
+        self.marked_ids.clear();
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.marked_ids.clear();
+        }
+    }
+
+    pub fn clear_cursor(&mut self) {
+        self.cursor_id = None;
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.cursor_id = None;
+        }
+    }
+
     pub fn reset_lbl_search(&mut self) {
         self.search_state = None;
         self.label_search_source = None;
@@ -2581,17 +2592,11 @@ fn compute_label_search_state(
         .filter_map(|(i, line)| re.is_match(line).then_some(i))
         .collect();
 
-    let mut match_linenum_vec: Vec<bool> = vec![false; headers.len()];
-    for i in &matches {
-        match_linenum_vec[*i] = true;
-    }
-
     Ok(SearchState {
         pattern: String::from(pattern),
         regex: re,
         match_linenums: matches,
         current: 0,
-        hdr_match_status: match_linenum_vec,
     })
 }
 
@@ -2600,11 +2605,9 @@ fn build_label_state_from_matches(
     matches: Vec<usize>,
     header_len: usize,
 ) -> SearchState {
-    let mut hdr_match_status: Vec<bool> = vec![false; header_len];
     let mut filtered: Vec<usize> = Vec::new();
     for idx in matches {
         if idx < header_len {
-            hdr_match_status[idx] = true;
             filtered.push(idx);
         }
     }
@@ -2614,7 +2617,6 @@ fn build_label_state_from_matches(
         regex,
         match_linenums: filtered,
         current: 0,
-        hdr_match_status,
     }
 }
 
@@ -3034,10 +3036,6 @@ mod tests {
                 assert_eq!(state.pattern, "^A");
                 assert_eq!(state.match_linenums, vec![0, 1]);
                 assert_eq!(state.current, 0);
-                assert_eq!(
-                    state.hdr_match_status,
-                    vec![true, true, false, false, false]
-                );
             }
             None => panic!(),
         }

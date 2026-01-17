@@ -534,6 +534,12 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 } else {
                     ui.app.warning_msg("No deletable views");
                 }
+            } else if cmd.trim() == "cm" {
+                ui.app.clear_marks();
+                ui.app.info_msg("Cleared marks");
+            } else if cmd.trim() == "cc" {
+                ui.app.clear_cursor();
+                ui.app.info_msg("Cleared cursor");
             } else if cmd.trim_start().starts_with("mv") {
                 let arg = cmd.trim_start()[2..].trim();
                 let ranks = if arg.is_empty() {
