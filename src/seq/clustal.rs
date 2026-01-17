@@ -42,11 +42,12 @@ pub fn read_clustal_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, TermalError
         let fragment = fields
             .next()
             .ok_or_else(|| TermalError::Format(String::from("Missing sequence fragment")))?;
+        let cleaned: String = fragment.chars().filter(|c| *c != '*').collect();
         let entry = sequences.entry(name.to_string()).or_insert_with(|| {
             order.push(name.to_string());
             String::new()
         });
-        entry.push_str(fragment);
+        entry.push_str(&cleaned);
     }
 
     if order.is_empty() {
@@ -68,6 +69,7 @@ pub fn read_clustal_file<P: AsRef<Path>>(path: P) -> Result<SeqFile, TermalError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_read_clustal_file() {
@@ -78,5 +80,26 @@ mod tests {
         assert_eq!(records[0].sequence, "ATG-CTG");
         assert_eq!(records[1].header, "seq2");
         assert_eq!(records[1].sequence, "AT-ACT-");
+    }
+
+    #[test]
+    fn test_read_clustal_ignores_stop_codons() {
+        let mut path = std::env::temp_dir();
+        path.push(format!("termal-test-clustal-{}.aln", std::process::id()));
+        let content = concat!(
+            "CLUSTAL W (1.83) multiple sequence alignment\n",
+            "\n",
+            "seq1    ATG*\n",
+            "seq2    A*TG\n",
+            "\n"
+        );
+        fs::write(&path, content).expect("write temp clustal");
+
+        let records = read_clustal_file(&path).expect("read temp clustal");
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].sequence, "ATG");
+        assert_eq!(records[1].sequence, "ATG");
+
+        let _ = fs::remove_file(&path);
     }
 }
