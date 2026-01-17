@@ -485,17 +485,6 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                     mode: RejectMode::Matched,
                 };
                 ui.app.info_msg("Reject matched sequences? (y/n)");
-            } else if cmd.trim() == "ur" {
-                match ui.app.undo_last_reject() {
-                    Ok(count) => {
-                        if count == 0 {
-                            ui.app.info_msg("Nothing to undo");
-                        } else {
-                            ui.app.info_msg(format!("Undid {} rejection(s)", count));
-                        }
-                    }
-                    Err(e) => ui.app.error_msg(format!("Undo failed: {}", e)),
-                }
             } else if cmd.trim() == "ss" {
                 let default_path = ui.app.default_session_path();
                 let mut editor = LineEditor::new();

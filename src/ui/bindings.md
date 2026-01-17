@@ -50,7 +50,6 @@ P            : save current search and clear its highlights
 :ru<Ret>     : reject unmatched sequences (y/n to confirm)
 :rm<Ret>     : reject matched sequences (y/n to confirm)
 :rk<Ret>     : reject marked sequences (from label search or tree selection)
-:ur<Ret>     : undo last rejection (restores file and sequences)
 :sn<Ret>     : select header by displayed number (e.g., :sn 31)
 :rn<Ret>     : reject by displayed number(s) (e.g., :rn 1,4,6-8)
 :ss<Ret>     : save session to .trml (prompted, with overwrite confirmation)
