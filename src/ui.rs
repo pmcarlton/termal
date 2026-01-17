@@ -445,6 +445,14 @@ impl<'a> UI<'a> {
         self.app.num_seq()
     }
 
+    pub fn cursor_rank(&self) -> Option<usize> {
+        self.app.cursor_rank()
+    }
+
+    pub fn selection_len(&self) -> usize {
+        self.app.selection_ranks().len()
+    }
+
     pub fn select_label_by_rank(&mut self, rank: usize) -> Result<(), TermalError> {
         self.app.select_label_by_rank(rank)?;
         if let Some(line) = self.app.current_label_match_screenlinenum() {

@@ -11,7 +11,7 @@
 * Configurable search colors via `.termalconfig` and mono-white as the default color mode
 * Header filtering: reject current header match to `rejected<file>` (`!`) and write view output (`W`)
 * Views with per-view ordering/tree/search state, plus `:vc` (create) and `:vs` (switch)
-* View deletion (`:vd`), moving marked sequences to another view (`:mv`), and per-view notes (`|`)
+* View deletion (`:vd`), moving selected sequences to another view (`:mv`), and per-view notes (`|`)
 * README caveat about terminal color schemes affecting ANSI colors
 * Clustal alignment input format (`-f clustal`)
 * Wishlist document for future enhancements
@@ -20,7 +20,7 @@
 * Separate header/sequence match navigation (`n/p` vs `[`/`]`) and numbered selection/rejection (`:sn`, `:rn`)
 * Session save/load with JSON .trml files (`:ss`, `:sl`)
 * Notes editor (`@`) stored inside session files
-* Tree navigation mode (`:tn`) with subtree marking and `:rk` reject for marked labels
+* Tree navigation mode (`:tn`) with subtree selection and `:rs` reject for selected labels
 
 ### Changed
 
@@ -35,7 +35,9 @@
 * Tools/colors configuration is unified in `.termalconfig` (searched in `$HOME`, then the current directory)
 * Tree selection now renders with heavy box-drawing for the selected subtree
 * Alignment title now includes the current view name
-* Header search now marks matches without changing selection; actions use selection or cursor
+* Selection model simplified: header search and tree navigation replace the current selection, and `.` toggles the cursor
+* Header search now selects matches without changing sequence search state
+* Rejecting all sequences no longer exits the program
 
 ### Fixed
 
@@ -46,7 +48,6 @@
 * Tree panel junctions now join horizontal segments with right-facing glyphs
 * Duplicate FASTA IDs are now rejected early with a clear error
 * Rejecting sequences now preserves tree ordering without truncating the view
-* Rejecting all sequences now exits cleanly with a message
 * SVG export overwrite confirmation now restores the prompt flow
 * MAFFT tree leaf names now map to headers with spaces/dots normalized and numeric prefixes stripped
 * Tree panel uses box-drawing characters with horizontal branches extended to leaf column

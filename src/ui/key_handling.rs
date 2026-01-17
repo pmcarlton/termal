@@ -108,9 +108,6 @@ fn handle_reject_result(ui: &mut UI, result: RejectResult) {
             } else {
                 ui.app
                     .info_msg(format!("Rejected {} sequences", result.count));
-                if ui.app.all_sequences_rejected() {
-                    ui.set_exit_message("all sequences have been rejected, ending program");
-                }
             }
         }
         RejectAction::RemovedFromView => {
@@ -160,23 +157,8 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
     }
 }
 
-fn selection_or_cursor_ranks(ui: &UI) -> Vec<usize> {
-    let selected = ui.app.selection_ranks();
-    if !selected.is_empty() {
-        return selected;
-    }
-    ui.app
-        .cursor_rank()
-        .map(|rank| vec![rank])
-        .unwrap_or_default()
-}
-
-fn selected_and_marked_ranks(ui: &UI) -> Vec<usize> {
-    let mut ranks = ui.app.selection_ranks();
-    ranks.extend(ui.app.marked_label_ranks());
-    ranks.sort_unstable();
-    ranks.dedup();
-    ranks
+fn selected_ranks(ui: &UI) -> Vec<usize> {
+    ui.app.selection_ranks()
 }
 
 fn handle_normal_key(ui: &mut UI, key_event: KeyEvent) -> bool {
@@ -534,16 +516,13 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 } else {
                     ui.app.warning_msg("No deletable views");
                 }
-            } else if cmd.trim() == "cm" {
-                ui.app.clear_marks();
-                ui.app.info_msg("Cleared marks");
             } else if cmd.trim() == "cc" {
                 ui.app.clear_cursor();
                 ui.app.info_msg("Cleared cursor");
             } else if cmd.trim_start().starts_with("mv") {
                 let arg = cmd.trim_start()[2..].trim();
                 let ranks = if arg.is_empty() {
-                    selected_and_marked_ranks(ui)
+                    selected_ranks(ui)
                 } else {
                     match parse_rank_list(arg) {
                         Ok(ranks) => ranks,
@@ -566,10 +545,10 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 } else {
                     ui.app.warning_msg("No target views available");
                 }
-            } else if cmd.trim() == "rk" {
-                let ranks = ui.app.marked_label_ranks();
+            } else if cmd.trim() == "rs" {
+                let ranks = selected_ranks(ui);
                 if ranks.is_empty() {
-                    ui.app.warning_msg("No marked sequences");
+                    ui.app.warning_msg("No selected sequences");
                     return;
                 }
                 let out_path = ui.app.rejected_output_path();
@@ -1392,9 +1371,10 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // Horizontal
         KeyCode::Char('#') => ui.jump_to_pct_col(count as u16),
 
-        // To search matches
-        KeyCode::Char('n') => ui.jump_to_next_lbl_match(count as i16),
-        KeyCode::Char('p') => ui.jump_to_next_lbl_match(-1 * count as i16),
+        // Cursor navigation
+        KeyCode::Char('n') => ui.app.move_cursor(count as isize),
+        KeyCode::Char('p') => ui.app.move_cursor(-1 * count as isize),
+        KeyCode::Char('.') => ui.app.toggle_cursor(),
         KeyCode::Char(']') => ui.jump_to_next_seq_match(count as i16),
         KeyCode::Char('[') => ui.jump_to_next_seq_match(-1 * count as i16),
 
@@ -1492,9 +1472,9 @@ fn dispatch_command(ui: &mut UI, key_event: KeyEvent, count_arg: Option<usize>) 
         // ----- Editing -----
         // Filter alignment through external command (à la Vim's '!')
         KeyCode::Char('!') => {
-            let ranks = selection_or_cursor_ranks(ui);
+            let ranks = selected_ranks(ui);
             if ranks.is_empty() {
-                ui.app.warning_msg("No selection");
+                ui.app.warning_msg("No selected sequences");
                 return;
             }
             let out_path = ui.app.rejected_output_path();

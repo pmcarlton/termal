@@ -49,7 +49,7 @@ P            : save current search and clear its highlights
 :rc<Ret>     : reject current match (y/n to confirm)
 :ru<Ret>     : reject unmatched sequences (y/n to confirm)
 :rm<Ret>     : reject matched sequences (y/n to confirm)
-:rk<Ret>     : reject marked sequences (from label search or tree selection)
+:rs<Ret>     : reject selected sequences
 :sn<Ret>     : select header by displayed number (e.g., :sn 31)
 :rn<Ret>     : reject by displayed number(s) (e.g., :rn 1,4,6-8)
 :ss<Ret>     : save session to .trml (prompted, with overwrite confirmation)
@@ -57,13 +57,13 @@ P            : save current search and clear its highlights
 :vc<Ret>     : create a new view from the current view (prompts for name)
 :vs<Ret>     : switch to another view (choose from list)
 :vd<Ret>     : delete a view (choose from list)
-:mv<Ret>     : move marked/selected sequences to another view (or :mv 1,4,6-8)
+:mv<Ret>     : move selected sequences to another view (or :mv 1,4,6-8)
 
 ## Tree navigation
 
 Right/Left or l/h : descend into child / move to parent (change range)
 Up/Down or k/j    : move within current depth
-Esc               : exit tree navigation (marks selected leaves)
+Esc               : exit tree navigation (selects leaves)
 
 ## Filtering
 
@@ -89,10 +89,10 @@ i: toggle inverse/direct video
 
 ## Selection
 
-x: toggle selection on cursor line
+x: select cursor line (clears previous selection)
 A: select all in view
 X: clear selection
-:cm<Ret> : clear marks
+.: toggle cursor highlight
 :cc<Ret> : clear cursor highlight
 
 Monochrome direct video is the default.

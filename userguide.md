@@ -15,20 +15,19 @@ The alignment pane shows the current window into the alignment. Horizontal and
 vertical scrolling move the viewport, while zoom modes swap between per-residue
 and downsampled views. A zoombox shows the viewport position when zoomed out.
 
-## Labels, Cursor, Marks, and Selection
+## Labels, Cursor, and Selection
 
-The cursor highlights a single sequence for visual inspection; it is the
-default target for actions when nothing is selected. Marks are accumulated from
-header searches and can stack across multiple ranges. Tree navigation selects
-the matching subtree as a selection set. Selections are explicit, per-view sets
-of sequences that actions operate on. Marks and cursor can be cleared with
-`:cm` and `:cc`.
+The cursor highlights a single sequence for visual inspection and is toggled
+with `.`. Selections are explicit, per-view sets of sequences that actions
+operate on; header search and tree navigation replace the current selection.
+The selection can be cleared with `X`, and the cursor can be cleared with
+`:cc`.
 
 ## Searching Sequence Headers
 
-Header search (`"pattern`) highlights all matching sequence IDs as marks and
-moves the cursor to the first match. The `n/p` keys move the cursor among
-matches without changing selection.
+Header search (`"pattern`) selects all matching sequence IDs and moves the
+cursor to the first match. The `n/p` keys move the cursor among the selected
+set.
 
 ## Searching Sequences
 
@@ -47,13 +46,13 @@ until disabled or removed.
 Rejection removes sequences from views and writes them to a rejected output
 file. In the original and filtered views, rejects also update the global
 rejected set; custom views only remove sequences locally. The current selection
-or cursor is used as the rejection target.
+is the rejection target.
 
 ## Views
 
 Views are named subsets of sequences with their own ordering, tree, searches,
-marks, selection, cursor, and notes. You can create (`:vc`), switch (`:vs`),
-delete (`:vd`), and move marked/selected sequences to another view (`:mv`).
+selection, cursor, and notes. You can create (`:vc`), switch (`:vs`), delete
+(`:vd`), and move selected sequences to another view (`:mv`).
 
 ## Ordering and Metrics
 
@@ -65,7 +64,7 @@ length for ordering and side-panel bars.
 
 Realignment (`:ra`) runs MAFFT to generate a guide tree and aligns sequences to
 tree order. The tree panel can be toggled, and tree navigation mode (`:tn`)
-lets you move among internal nodes to mark subtrees.
+lets you move among internal nodes to select subtrees.
 
 ## Notes
 

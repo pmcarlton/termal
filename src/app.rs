@@ -141,7 +141,6 @@ struct ViewState {
     output_path: PathBuf,
     notes: String,
     selected_ids: HashSet<usize>,
-    marked_ids: HashSet<usize>,
     cursor_id: Option<usize>,
 }
 
@@ -369,7 +368,6 @@ pub struct App {
     current_view_output_path: PathBuf,
     rejected_ids: HashSet<usize>,
     selected_ids: HashSet<usize>,
-    marked_ids: HashSet<usize>,
     cursor_id: Option<usize>,
 }
 
@@ -423,7 +421,6 @@ impl App {
             output_path: self.current_view_output_path.clone(),
             notes: self.view_notes.clone(),
             selected_ids: self.selected_ids.clone(),
-            marked_ids: self.marked_ids.clone(),
             cursor_id: self.cursor_id,
         }
     }
@@ -474,18 +471,13 @@ impl App {
                 }
             }
         }
-        if let Some(state) = &self.search_state {
-            for rank in &state.match_linenums {
-                if let Some(id) = self.current_view_ids.get(*rank).copied() {
-                    self.marked_ids.insert(id);
-                }
-            }
-            if self.cursor_id.is_none() {
-                if let Some(rank) = state.match_linenums.first().copied() {
-                    if let Some(id) = self.current_view_ids.get(rank).copied() {
-                        self.cursor_id = Some(id);
-                    }
-                }
+        if self.selected_ids.is_empty() {
+            let matches = self
+                .search_state
+                .as_ref()
+                .map(|state| state.match_linenums.clone());
+            if let Some(matches) = matches {
+                self.set_selection_from_ranks(&matches);
             }
         }
         self.seq_search_state = None;
@@ -509,7 +501,6 @@ impl App {
         self.current_view_output_path = view.output_path.clone();
         self.view_notes = view.notes.clone();
         self.selected_ids = view.selected_ids.clone();
-        self.marked_ids = view.marked_ids.clone();
         self.cursor_id = view.cursor_id;
         self.prune_selection_and_cursor();
         if self.tree.is_some() {
@@ -564,7 +555,6 @@ impl App {
     fn prune_selection_and_cursor(&mut self) {
         let allowed: HashSet<usize> = self.current_view_ids.iter().copied().collect();
         self.selected_ids.retain(|id| allowed.contains(id));
-        self.marked_ids.retain(|id| allowed.contains(id));
         if let Some(id) = self.cursor_id {
             if !allowed.contains(&id) {
                 self.cursor_id = None;
@@ -654,7 +644,6 @@ impl App {
             output_path: self.output_path_for_view(name),
             notes: String::new(),
             selected_ids: self.selected_ids.clone(),
-            marked_ids: self.marked_ids.clone(),
             cursor_id: self.cursor_id,
         };
         self.views.insert(name.to_string(), view);
@@ -694,7 +683,6 @@ impl App {
                 output_path: self.output_path_for_view("filtered"),
                 notes: String::new(),
                 selected_ids: HashSet::new(),
-                marked_ids: HashSet::new(),
                 cursor_id: None,
             };
             self.views.insert(String::from("filtered"), view);
@@ -715,7 +703,6 @@ impl App {
                 output_path: self.output_path_for_view("rejected"),
                 notes: String::new(),
                 selected_ids: HashSet::new(),
-                marked_ids: HashSet::new(),
                 cursor_id: None,
             };
             self.views.insert(String::from("rejected"), view);
@@ -861,7 +848,6 @@ impl App {
             output_path: original_output_path.clone(),
             notes: String::new(),
             selected_ids: HashSet::new(),
-            marked_ids: HashSet::new(),
             cursor_id: None,
         };
         active_search_ids.extend(original_view.active_search_ids.iter().copied());
@@ -898,7 +884,6 @@ impl App {
             current_view_output_path: original_output_path,
             rejected_ids: HashSet::new(),
             selected_ids: HashSet::new(),
-            marked_ids: HashSet::new(),
             cursor_id: None,
         }
     }
@@ -998,11 +983,6 @@ impl App {
                     } else {
                         Some(view.selected_ids.iter().copied().collect())
                     },
-                    marked_ids: if view.marked_ids.is_empty() {
-                        None
-                    } else {
-                        Some(view.marked_ids.iter().copied().collect())
-                    },
                     cursor_id: view.cursor_id,
                 });
             }
@@ -1081,7 +1061,6 @@ impl App {
                     output_path,
                     notes: view.notes.unwrap_or_default(),
                     selected_ids: view.selected_ids.unwrap_or_default().into_iter().collect(),
-                    marked_ids: view.marked_ids.unwrap_or_default().into_iter().collect(),
                     cursor_id: view.cursor_id,
                 };
                 self.view_order.push(view.name.clone());
@@ -1117,7 +1096,6 @@ impl App {
                 output_path: self.output_path_for_view("original"),
                 notes: String::new(),
                 selected_ids: HashSet::new(),
-                marked_ids: HashSet::new(),
                 cursor_id: None,
             };
             self.view_order.push(String::from("original"));
@@ -1321,16 +1299,7 @@ impl App {
         // self.debug_msg("Regex search");
         match compute_label_search_state(&self.alignment.headers, pattern) {
             Ok(state) => {
-                if let Some(first) = state.match_linenums.first().copied() {
-                    if let Some(id) = self.current_view_ids.get(first).copied() {
-                        self.cursor_id = Some(id);
-                    }
-                }
-                for rank in &state.match_linenums {
-                    if let Some(id) = self.current_view_ids.get(*rank).copied() {
-                        self.marked_ids.insert(id);
-                    }
-                }
+                self.set_selection_from_ranks(&state.match_linenums);
                 self.search_state = Some(state);
                 self.label_search_source = Some(LabelSearchSource::Regex);
                 self.tree_selection_range = None;
@@ -1353,7 +1322,7 @@ impl App {
             )));
         }
         if let Some(id) = self.current_view_ids.get(rank).copied() {
-            self.cursor_id = Some(id);
+            self.set_selection_from_ids(&[id]);
         }
         Ok(())
     }
@@ -1419,14 +1388,6 @@ impl App {
         self.cursor_rank().map(|cur| cur == rank).unwrap_or(false)
     }
 
-    pub fn is_label_marked(&self, rank: usize) -> bool {
-        if let Some(id) = self.current_view_ids.get(rank) {
-            self.marked_ids.contains(id)
-        } else {
-            false
-        }
-    }
-
     pub fn is_label_selected(&self, rank: usize) -> bool {
         if let Some(id) = self.current_view_ids.get(rank) {
             self.selected_ids.contains(id)
@@ -1443,14 +1404,6 @@ impl App {
             .collect()
     }
 
-    pub fn marked_label_ranks(&self) -> Vec<usize> {
-        self.current_view_ids
-            .iter()
-            .enumerate()
-            .filter_map(|(rank, id)| self.marked_ids.contains(id).then_some(rank))
-            .collect()
-    }
-
     pub fn toggle_selection_on_cursor(&mut self) {
         let Some(id) = self.cursor_id else {
             return;
@@ -1458,11 +1411,10 @@ impl App {
         if !self.current_view_ids.contains(&id) {
             return;
         }
-        if !self.selected_ids.insert(id) {
-            self.selected_ids.remove(&id);
-        }
-        if let Some(view) = self.views.get_mut(&self.current_view) {
-            view.selected_ids = self.selected_ids.clone();
+        if self.selected_ids.len() == 1 && self.selected_ids.contains(&id) {
+            self.clear_selection();
+        } else {
+            self.set_selection_from_ids(&[id]);
         }
     }
 
@@ -1480,17 +1432,81 @@ impl App {
         }
     }
 
-    pub fn clear_marks(&mut self) {
-        self.marked_ids.clear();
-        if let Some(view) = self.views.get_mut(&self.current_view) {
-            view.marked_ids.clear();
-        }
-    }
-
     pub fn clear_cursor(&mut self) {
         self.cursor_id = None;
         if let Some(view) = self.views.get_mut(&self.current_view) {
             view.cursor_id = None;
+        }
+    }
+
+    pub fn toggle_cursor(&mut self) {
+        if self.cursor_id.is_some() {
+            self.clear_cursor();
+            return;
+        }
+        let ids = self.cursor_cycle_ids();
+        self.cursor_id = ids.first().copied();
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.cursor_id = self.cursor_id;
+        }
+    }
+
+    pub fn move_cursor(&mut self, delta: isize) {
+        if self.cursor_id.is_none() {
+            return;
+        }
+        let ids = self.cursor_cycle_ids();
+        if ids.is_empty() {
+            self.cursor_id = None;
+            return;
+        }
+        let idx = match self.cursor_id {
+            Some(id) => ids.iter().position(|item| *item == id),
+            None => None,
+        };
+        let current = idx.unwrap_or(0) as isize;
+        let len = ids.len() as isize;
+        let next = (current + delta).rem_euclid(len) as usize;
+        self.cursor_id = Some(ids[next]);
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.cursor_id = self.cursor_id;
+        }
+    }
+
+    fn cursor_cycle_ids(&self) -> Vec<usize> {
+        let use_selection = !self.selected_ids.is_empty();
+        let mut ids = Vec::new();
+        for &rank in &self.ordering {
+            if let Some(id) = self.current_view_ids.get(rank).copied() {
+                if !use_selection || self.selected_ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+        ids
+    }
+
+    fn set_selection_from_ranks(&mut self, ranks: &[usize]) {
+        let ids: Vec<usize> = ranks
+            .iter()
+            .filter_map(|rank| self.current_view_ids.get(*rank).copied())
+            .collect();
+        self.set_selection_from_ids(&ids);
+    }
+
+    fn set_selection_from_ids(&mut self, ids: &[usize]) {
+        self.selected_ids.clear();
+        for id in ids {
+            if self.current_view_ids.contains(id) {
+                self.selected_ids.insert(*id);
+            }
+        }
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.selected_ids = self.selected_ids.clone();
+        }
+        self.cursor_id = self.selected_ids.iter().copied().next();
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.cursor_id = self.cursor_id;
         }
     }
 
@@ -1504,6 +1520,10 @@ impl App {
     pub fn set_label_matches_from_tree(&mut self, matches: Vec<usize>, tree_range: (usize, usize)) {
         if matches.is_empty() {
             self.tree_selection_range = None;
+            self.selected_ids.clear();
+            if let Some(view) = self.views.get_mut(&self.current_view) {
+                view.selected_ids.clear();
+            }
             self.update_tree_lines_for_selection();
             return;
         }
@@ -1818,13 +1838,9 @@ impl App {
         }
         for id in removed_ids {
             self.selected_ids.remove(&id);
-            self.marked_ids.remove(&id);
             if self.cursor_id == Some(id) {
                 self.cursor_id = None;
             }
-        }
-        if self.cursor_id.is_none() {
-            self.cursor_id = self.current_view_ids.first().copied();
         }
         removed
     }
@@ -2619,9 +2635,9 @@ fn build_label_state_from_matches(
     }
 }
 
-fn map_headers_to_indices(headers: &[String], marked: &[String]) -> Vec<usize> {
+fn map_headers_to_indices(headers: &[String], subset: &[String]) -> Vec<usize> {
     let mut indices: Vec<usize> = Vec::new();
-    for header in marked {
+    for header in subset {
         if let Some(pos) = headers.iter().position(|h| h == header) {
             indices.push(pos);
         }
@@ -2972,7 +2988,7 @@ mod tests {
         let mut app = App::new("TEST", aln, None);
         app.select_label_by_rank(1).unwrap();
         assert_eq!(app.cursor_rank(), Some(1));
-        assert!(!app.is_label_marked(1));
+        assert!(app.is_label_selected(1));
     }
 
     #[test]
@@ -3047,8 +3063,8 @@ mod tests {
         let aln = Alignment::from_vecs(hdrs, seqs);
         let mut app = App::new("TEST", aln, None);
         app.regex_search_labels("^a");
-        assert!(app.is_label_marked(0));
-        assert!(app.is_label_marked(1));
+        assert!(app.is_label_selected(0));
+        assert!(app.is_label_selected(1));
     }
 
     #[test]

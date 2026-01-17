@@ -83,80 +83,21 @@ fn test_label_search() {
                 last_line
             );
 
-            // Pressing 'n' should cause the modeline to change to "match #2/8"
-
+            // Pressing 'n' should advance the cursor to the next selection.
+            let before_cursor = ui.cursor_rank();
             key_handling::handle_key_press(ui, utils::keypress('n'));
-            terminal
-                .draw(|f| render::render_ui(f, &mut ui))
-                .expect("update");
-            let buffer = terminal.backend().buffer();
-            let last_line = utils::screen_line(&buffer, last_line_y);
-
-            assert!(
-                last_line.contains("match #2/8"),
-                "\"match #2/8\" not found on last line: {}",
-                last_line
+            let after_cursor = ui.cursor_rank();
+            assert_ne!(
+                before_cursor, after_cursor,
+                "cursor did not advance to the next selection"
             );
 
-            // Pressing 'n' another 7 times should cause the modeline to cycle back to "match #1/8"
-
-            key_handling::handle_key_press(ui, utils::keypress('n'));
-            key_handling::handle_key_press(ui, utils::keypress('n'));
-            key_handling::handle_key_press(ui, utils::keypress('n'));
-            key_handling::handle_key_press(ui, utils::keypress('n'));
-            key_handling::handle_key_press(ui, utils::keypress('n'));
-            key_handling::handle_key_press(ui, utils::keypress('n'));
-            key_handling::handle_key_press(ui, utils::keypress('n'));
-            terminal
-                .draw(|f| render::render_ui(f, &mut ui))
-                .expect("update");
-            let buffer = terminal.backend().buffer();
-            let last_line = utils::screen_line(&buffer, last_line_y);
-
-            assert!(
-                last_line.contains("match #1/8"),
-                "\"match #1/8\" not found on last line: {}",
-                last_line
-            );
-
-            // Pressing 'p' should cause the modeline to change to "match #8/8"
-
+            // Pressing 'p' should move the cursor back to the original match.
             key_handling::handle_key_press(ui, utils::keypress('p'));
-            terminal
-                .draw(|f| render::render_ui(f, &mut ui))
-                .expect("update");
-            let buffer = terminal.backend().buffer();
-            let last_line = utils::screen_line(&buffer, last_line_y);
-
-            let expected = "match #8/8";
-            assert!(
-                last_line.contains(expected),
-                "\"{}\" not found on last line: {}",
-                expected,
-                last_line
-            );
-
-            // Pressing 'n' another 7 times should cause the modeline to cycle back to "match #1/8"
-
-            key_handling::handle_key_press(ui, utils::keypress('p'));
-            key_handling::handle_key_press(ui, utils::keypress('p'));
-            key_handling::handle_key_press(ui, utils::keypress('p'));
-            key_handling::handle_key_press(ui, utils::keypress('p'));
-            key_handling::handle_key_press(ui, utils::keypress('p'));
-            key_handling::handle_key_press(ui, utils::keypress('p'));
-            key_handling::handle_key_press(ui, utils::keypress('p'));
-            terminal
-                .draw(|f| render::render_ui(f, &mut ui))
-                .expect("update");
-            let buffer = terminal.backend().buffer();
-            let last_line = utils::screen_line(&buffer, last_line_y);
-
-            let expected = "match #1/8";
-            assert!(
-                last_line.contains(expected),
-                "\"{}\" not found on last line: {}",
-                expected,
-                last_line
+            let back_cursor = ui.cursor_rank();
+            assert_eq!(
+                before_cursor, back_cursor,
+                "cursor did not return to the previous selection"
             );
 
             // Pressing Esc should clear modeline
@@ -255,6 +196,7 @@ fn test_reject_label_match_in_tree_order() {
         SCREEN_WIDTH,
         SCREEN_HEIGHT,
         |mut ui, terminal| {
+            let before = ui.num_sequences();
             ui.set_user_ordering_from_headers().unwrap();
             ui.show_tree_panel(true);
 
@@ -263,6 +205,7 @@ fn test_reject_label_match_in_tree_order() {
             key_handling::handle_key_press(ui, utils::keypress('F'));
             key_handling::handle_key_press(ui, utils::keypress('J'));
             key_handling::handle_key_press(ui, KeyCode::Enter.into());
+            let selected = ui.selection_len();
             key_handling::handle_key_press(ui, utils::keypress('n'));
             key_handling::handle_key_press(ui, utils::keypress('!'));
             key_handling::handle_key_press(ui, utils::keypress(':'));
@@ -279,10 +222,11 @@ fn test_reject_label_match_in_tree_order() {
             let buffer = terminal.backend().buffer();
             let last_line = utils::screen_line(&buffer, SCREEN_HEIGHT - 1);
             assert!(
-                last_line.contains("match #") && last_line.contains("/7"),
-                "Expected match count after rejection, got: {}",
+                last_line.contains("View: filtered"),
+                "Expected filtered view after rejection, got: {}",
                 last_line
             );
+            assert_eq!(ui.num_sequences(), before - selected as u16);
         },
     );
 }
@@ -300,6 +244,7 @@ fn test_reject_label_match() {
             key_handling::handle_key_press(ui, utils::keypress('F'));
             key_handling::handle_key_press(ui, utils::keypress('J'));
             key_handling::handle_key_press(ui, KeyCode::Enter.into());
+            let selected = ui.selection_len();
             key_handling::handle_key_press(ui, utils::keypress('n'));
             key_handling::handle_key_press(ui, utils::keypress('!'));
             key_handling::handle_key_press(ui, utils::keypress(':'));
@@ -308,7 +253,7 @@ fn test_reject_label_match() {
             key_handling::handle_key_press(ui, KeyCode::Enter.into());
             key_handling::handle_key_press(ui, utils::keypress('j'));
             key_handling::handle_key_press(ui, KeyCode::Enter.into());
-            assert_eq!(ui.num_sequences(), before - 1);
+            assert_eq!(ui.num_sequences(), before - selected as u16);
         },
     );
 }
