@@ -43,6 +43,7 @@ impl NotesEditor {
         self.scroll
     }
 
+    #[allow(dead_code)]
     pub fn set_scroll(&mut self, scroll: usize) {
         self.scroll = scroll;
     }

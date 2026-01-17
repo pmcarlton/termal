@@ -547,6 +547,12 @@ impl App {
             .get(name)
             .cloned()
             .ok_or_else(|| TermalError::Format(format!("Unknown view {}", name)))?;
+        if view.sequence_ids.is_empty() {
+            return Err(TermalError::Format(format!(
+                "View {} has no sequences",
+                name
+            )));
+        }
         self.store_current_view_state();
         self.load_view_state(view)?;
         Ok(())
