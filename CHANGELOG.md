@@ -51,6 +51,7 @@
 * SVG export overwrite confirmation now restores the prompt flow
 * MAFFT tree leaf names now map to headers with spaces/dots normalized and numeric prefixes stripped
 * Tree panel uses box-drawing characters with horizontal branches extended to leaf column
+* Tree selection now rejects the same sequences shown in the tree after realignment
 
 ---
 above: pmcarlton changes
