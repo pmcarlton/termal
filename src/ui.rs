@@ -347,6 +347,7 @@ pub struct UI<'a> {
     help_page_height: usize,
     exit_message: Option<String>,
     show_tree_panel: bool,
+    dirty: bool,
 }
 
 impl<'a> UI<'a> {
@@ -384,6 +385,7 @@ impl<'a> UI<'a> {
             help_page_height: 1,
             exit_message: None,
             show_tree_panel: false,
+            dirty: false,
         }
     }
 
@@ -414,6 +416,20 @@ impl<'a> UI<'a> {
 
     pub fn take_exit_message(&mut self) -> Option<String> {
         self.exit_message.take()
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    pub fn clear_dirty(&mut self) {
+        self.dirty = false;
+    }
+
+    pub fn take_dirty(&mut self) -> bool {
+        let dirty = self.dirty;
+        self.dirty = false;
+        dirty
     }
 
     pub fn show_tree_panel(&mut self, show: bool) {

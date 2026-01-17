@@ -6,7 +6,7 @@ use std::{
     fs::File,
     io::{stdout, BufRead, BufReader},
     path::{Path, PathBuf},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use log::info;
@@ -283,36 +283,25 @@ pub fn run() -> Result<(), TermalError> {
         }
 
         let poll_wait = Duration::from_millis(cli.poll_wait_time);
-        let frame_interval = Duration::from_millis(50); // FIXME: constant or option
-        let mut last_draw: Instant;
-
         terminal.draw(|f| render_ui(f, &mut app_ui))?;
-        last_draw = Instant::now();
 
         // main loop
         loop {
             // Wait for an event (or timeout)
-            // TODO: redraw only if 'dirty', i.e. visuals have changes (most keys, but not e.g.
-            // when scrolling past a boundary (=> no change). Have handle_key_press() return (done,
-            // dirty) (i.e. a tuple of booleans).
-            //let mut dirty = true;
             if event::poll(poll_wait)? {
                 match event::read()? {
                     event::Event::Key(key) if key.kind == KeyEventKind::Press => {
+                        app_ui.clear_dirty();
                         let done = handle_key_press(&mut app_ui, key);
                         if done {
                             break;
                         }
-
-                        // Only draw if enough time has elapsed
-                        if last_draw.elapsed() >= frame_interval {
+                        if app_ui.take_dirty() {
                             terminal.draw(|f| render_ui(f, &mut app_ui))?;
-                            last_draw = Instant::now();
                         }
                     }
                     event::Event::Resize(_, _) => {
                         terminal.draw(|f| render_ui(f, &mut app_ui))?;
-                        last_draw = Instant::now();
                     }
                     _ => {}
                 }
