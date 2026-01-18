@@ -775,6 +775,14 @@ fn handle_tree_nav(ui: &mut UI, key_event: KeyEvent, mut nav: super::TreeNav) {
             ui.scroll_one_screen_down(1);
             mark_dirty(ui);
         }
+        KeyCode::Left if key_event.modifiers.contains(KeyModifiers::SHIFT) => {
+            ui.scroll_one_screen_left(1);
+            mark_dirty(ui);
+        }
+        KeyCode::Right if key_event.modifiers.contains(KeyModifiers::SHIFT) => {
+            ui.scroll_one_screen_right(1);
+            mark_dirty(ui);
+        }
         KeyCode::Left | KeyCode::Char('h') => {
             changed = nav.move_left();
         }

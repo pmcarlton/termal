@@ -179,6 +179,7 @@ Tree navigation (:tn)
 * Right/Left or l/h : descend into child / move to parent (change range)
 * Up/Down or k/j    : move within current depth
 * Shift-Up/Down     : scroll by screen without changing selection
+* Shift-Left/Right  : scroll horizontally by screen without changing selection
 * Esc               : exit tree navigation (selects leaves)
 
 Filtering

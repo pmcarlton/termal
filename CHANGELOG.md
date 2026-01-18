@@ -23,6 +23,7 @@
 * Notes editor (`@`) stored inside session files
 * Tree navigation mode (`:tn`) with subtree selection and `:rs` reject for selected labels
 * Tree navigation Shift-Up/Down for screen scrolling without changing selection
+* Tree navigation Shift-Left/Right for horizontal screen scrolling without changing selection
 
 ### Changed
 

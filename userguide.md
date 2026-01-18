@@ -66,8 +66,8 @@ length for ordering and side-panel bars.
 Realignment (`:ra`) runs MAFFT to generate a guide tree and aligns sequences to
 tree order. The tree panel can be toggled, and tree navigation mode (`:tn`)
 lets you move among internal nodes to select subtrees that match the sequences
-you will reject or move; Shift-Up/Down scrolls the view without changing the
-selection.
+you will reject or move; Shift-Up/Down and Shift-Left/Right scroll the view
+without changing the selection.
 
 ## Notes
 
