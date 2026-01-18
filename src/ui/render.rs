@@ -808,6 +808,34 @@ fn render_view_list_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
     f.render_widget(dialog_para, dialog_chunk);
 }
 
+fn render_view_create_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
+    let dialog_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Create View from Selection");
+    let views = ui.app.view_names();
+
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from("Existing views"));
+    lines.push(Line::from("--------------"));
+    for name in views {
+        let current = if name == ui.app.current_view_name() {
+            format!("* {}", name)
+        } else {
+            format!("  {}", name)
+        };
+        lines.push(Line::from(current));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(format!("Name: {}", ui.view_create_text())));
+    lines.push(Line::from("Type a name, Enter to create, Esc to cancel."));
+
+    let dialog_para = Paragraph::new(Text::from(lines))
+        .block(dialog_block)
+        .style(Style::default());
+    f.render_widget(Clear, dialog_chunk);
+    f.render_widget(dialog_para, dialog_chunk);
+}
+
 fn render_view_delete_dialog(f: &mut Frame, dialog_chunk: Rect, ui: &UI) {
     let dialog_block = Block::default().borders(Borders::ALL).title("Delete View");
     let selected = ui.view_delete_selected().unwrap_or(0);
@@ -990,6 +1018,10 @@ pub fn render_ui(f: &mut Frame, ui: &mut UI) {
 
     if let InputMode::ViewList { .. } = ui.input_mode {
         render_view_list_dialog(f, layout_panes.dialog, ui);
+    }
+
+    if let InputMode::ViewCreateWithList { .. } = ui.input_mode {
+        render_view_create_dialog(f, layout_panes.dialog, ui);
     }
 
     if let InputMode::ViewDelete { .. } = ui.input_mode {

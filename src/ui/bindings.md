@@ -55,6 +55,7 @@ P            : save current search and clear its highlights
 :ss<Ret>     : save session to .trml (prompted, with overwrite confirmation)
 :sl<Ret>     : load session from .trml (choose from list)
 :vc<Ret>     : create a new view from the current view (prompts for name)
+:vx<Ret>     : create a new view from selected sequences (prompts with view list)
 :vs<Ret>     : switch to another view (choose from list)
 :vd<Ret>     : delete a view (choose from list)
 :mv<Ret>     : move selected sequences to another view (or :mv 1,4,6-8)

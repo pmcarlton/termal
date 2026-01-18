@@ -12,6 +12,7 @@
 * Header filtering: reject current header match to `rejected<file>` (`!`) and write view output (`W`)
 * Views with per-view ordering/tree/search state, plus `:vc` (create) and `:vs` (switch)
 * View deletion (`:vd`), moving selected sequences to another view (`:mv`), and per-view notes (`|`)
+* View creation from selected sequences (`:vx`) with a prompt showing existing views
 * README caveat about terminal color schemes affecting ANSI colors
 * Clustal alignment input format (`-f clustal`)
 * Wishlist document for future enhancements

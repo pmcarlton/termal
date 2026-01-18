@@ -683,6 +683,56 @@ impl App {
         Ok(())
     }
 
+    pub fn create_view_from_selection(&mut self, name: &str) -> Result<(), TermalError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(TermalError::Format(String::from(
+                "View name cannot be empty",
+            )));
+        }
+        if self.views.contains_key(name) {
+            return Err(TermalError::Format(format!("View {} already exists", name)));
+        }
+        if self.selected_ids.is_empty() {
+            return Err(TermalError::Format(String::from("No selected sequences")));
+        }
+        let sequence_ids: Vec<usize> = self
+            .current_view_ids
+            .iter()
+            .copied()
+            .filter(|id| self.selected_ids.contains(id))
+            .collect();
+        if sequence_ids.is_empty() {
+            return Err(TermalError::Format(String::from("No selected sequences")));
+        }
+        let user_ordering = Some(
+            sequence_ids
+                .iter()
+                .filter_map(|id| self.records.get(*id))
+                .map(|rec| rec.header.clone())
+                .collect(),
+        );
+        let view = ViewState {
+            name: name.to_string(),
+            sequence_ids: sequence_ids.clone(),
+            tree: None,
+            tree_newick: None,
+            tree_lines: Vec::new(),
+            tree_panel_width: 0,
+            current_search: None,
+            label_search: None,
+            active_search_ids: self.active_search_ids.clone(),
+            user_ordering,
+            output_path: self.output_path_for_view(name),
+            notes: String::new(),
+            selected_ids: sequence_ids.iter().copied().collect(),
+            cursor_id: sequence_ids.first().copied(),
+        };
+        self.views.insert(name.to_string(), view);
+        self.view_order.push(name.to_string());
+        Ok(())
+    }
+
     fn ensure_filtered_rejected_views(&mut self) {
         let current_search = self
             .seq_search_state
@@ -3030,6 +3080,24 @@ mod tests {
         app.set_user_ordering(vec![String::from("R1"), String::from("R2")])
             .unwrap();
         assert_eq!(app.ordering_status_label(), "o:tree");
+    }
+
+    #[test]
+    fn test_create_view_from_selection() {
+        let hdrs = vec![String::from("R1"), String::from("R2"), String::from("R3")];
+        let seqs = vec![String::from("AA"), String::from("BB"), String::from("CC")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.select_label_by_rank(1).unwrap();
+        app.create_view_from_selection("picked").unwrap();
+
+        let view = app.views.get("picked").expect("view");
+        assert_eq!(view.sequence_ids, vec![1]);
+        assert!(view.tree.is_none());
+        assert_eq!(
+            view.user_ordering.as_ref().unwrap(),
+            &vec!["R2".to_string()]
+        );
     }
 
     #[test]

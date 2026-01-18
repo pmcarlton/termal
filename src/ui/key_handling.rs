@@ -11,7 +11,7 @@ use super::{
     InputMode::{
         Command, ConfirmOverwrite, ConfirmReject, ConfirmSessionOverwrite, ConfirmViewDelete,
         ExportSvg, Help, LabelSearch, Normal, Notes, PendingCount, Search, SearchList, SessionList,
-        SessionSave, TreeNav, ViewCreate, ViewDelete, ViewList, ViewMove,
+        SessionSave, TreeNav, ViewCreate, ViewCreateWithList, ViewDelete, ViewList, ViewMove,
     },
     //SearchDirection,
     {NotesTarget, RejectMode, ZoomLevel, UI},
@@ -167,6 +167,7 @@ pub fn handle_key_press(ui: &mut UI, key_event: KeyEvent) -> bool {
         TreeNav { nav } => handle_tree_nav(ui, key_event, nav),
         ViewList { selected } => handle_view_list(ui, key_event, selected),
         ViewCreate { editor } => handle_view_create(ui, key_event, editor),
+        ViewCreateWithList { editor } => handle_view_create_with_list(ui, key_event, editor),
         ViewDelete { selected } => handle_view_delete(ui, key_event, selected),
         ViewMove { selected, ranks } => handle_view_move(ui, key_event, selected, &ranks),
     };
@@ -559,6 +560,15 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 ui.input_mode = InputMode::ViewCreate { editor };
                 ui.app
                     .argument_msg(String::from("View name: "), String::new());
+            } else if cmd.trim() == "vx" {
+                if ui.app.selection_ranks().is_empty() {
+                    ui.app.warning_msg("No selected sequences");
+                } else {
+                    let editor = LineEditor::new();
+                    ui.input_mode = InputMode::ViewCreateWithList { editor };
+                    ui.app
+                        .argument_msg(String::from("View name: "), String::new());
+                }
             } else if cmd.trim() == "vs" {
                 if ui.app.view_names().is_empty() {
                     ui.app.warning_msg("No views available");
@@ -1087,6 +1097,65 @@ fn handle_view_create(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) 
         KeyCode::End => {
             editor.move_end();
             ui.input_mode = InputMode::ViewCreate { editor };
+            mark_dirty(ui);
+        }
+        _ => {}
+    }
+}
+
+fn handle_view_create_with_list(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
+    match key_event.code {
+        KeyCode::Esc => {
+            ui.input_mode = InputMode::Normal;
+            ui.app.clear_msg();
+            mark_dirty(ui);
+        }
+        KeyCode::Enter => {
+            let name = editor.text();
+            match ui.app.create_view_from_selection(&name) {
+                Ok(()) => {
+                    ui.input_mode = InputMode::Normal;
+                    ui.app.info_msg(format!("Created view {}", name));
+                }
+                Err(e) => {
+                    ui.input_mode = InputMode::ViewCreateWithList { editor };
+                    ui.app.error_msg(format!("View create failed: {}", e));
+                }
+            }
+            mark_dirty(ui);
+        }
+        KeyCode::Char(c) if c.is_ascii_graphic() || c == ' ' => {
+            editor.insert_char(c);
+            ui.input_mode = InputMode::ViewCreateWithList { editor };
+            ui.app
+                .argument_msg(String::from("View name: "), ui.view_create_text());
+            mark_dirty(ui);
+        }
+        KeyCode::Backspace => {
+            editor.backspace();
+            ui.input_mode = InputMode::ViewCreateWithList { editor };
+            ui.app
+                .argument_msg(String::from("View name: "), ui.view_create_text());
+            mark_dirty(ui);
+        }
+        KeyCode::Left => {
+            editor.move_left();
+            ui.input_mode = InputMode::ViewCreateWithList { editor };
+            mark_dirty(ui);
+        }
+        KeyCode::Right => {
+            editor.move_right();
+            ui.input_mode = InputMode::ViewCreateWithList { editor };
+            mark_dirty(ui);
+        }
+        KeyCode::Home => {
+            editor.move_home();
+            ui.input_mode = InputMode::ViewCreateWithList { editor };
+            mark_dirty(ui);
+        }
+        KeyCode::End => {
+            editor.move_end();
+            ui.input_mode = InputMode::ViewCreateWithList { editor };
             mark_dirty(ui);
         }
         _ => {}

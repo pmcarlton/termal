@@ -117,6 +117,9 @@ enum InputMode {
     ViewCreate {
         editor: LineEditor,
     },
+    ViewCreateWithList {
+        editor: LineEditor,
+    },
     ViewDelete {
         selected: usize,
     },
@@ -879,6 +882,7 @@ impl<'a> UI<'a> {
     pub fn view_create_text(&self) -> String {
         match &self.input_mode {
             InputMode::ViewCreate { editor } => editor.text(),
+            InputMode::ViewCreateWithList { editor } => editor.text(),
             _ => String::new(),
         }
     }
