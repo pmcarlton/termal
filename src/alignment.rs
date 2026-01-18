@@ -132,7 +132,7 @@ impl Alignment {
     }
 
     pub fn aln_len(&self) -> usize {
-        self.sequences[0].len()
+        self.sequences.first().map(|seq| seq.len()).unwrap_or(0)
     }
 
     pub fn macromolecule_type(&self) -> SeqType {
@@ -584,5 +584,14 @@ mod tests {
         assert_eq!(SeqType::Nucleic, aln.macromolecule_type());
         assert_eq!("Onca", aln.headers[3]);
         assert_eq!("gatgcatatg", aln.sequences[3]);
+    }
+
+    #[test]
+    fn test_aln_len_empty_after_removal() {
+        let hdrs = vec![String::from("R1")];
+        let seqs = vec![String::from("AA")];
+        let mut aln = Alignment::from_vecs(hdrs, seqs);
+        aln.remove_seq(0);
+        assert_eq!(aln.aln_len(), 0);
     }
 }

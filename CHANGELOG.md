@@ -55,6 +55,7 @@
 * Tree panel uses box-drawing characters with horizontal branches extended to leaf column
 * Tree selection now rejects the same sequences shown in the tree after realignment
 * Tree navigation auto-scroll keeps selected leaves in view when navigating large alignments
+* View switching now clears selection and avoids crashes when a view becomes empty
 
 ---
 above: pmcarlton changes

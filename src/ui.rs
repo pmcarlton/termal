@@ -573,7 +573,12 @@ impl<'a> UI<'a> {
     // Number of columns needed to write the highest sequence number, e.g. 4 for 1000. This does
     // NOT take into account any borders.
     pub fn seq_num_max_len(&self) -> u16 {
-        self.app.num_seq().ilog10() as u16 + 1
+        let num = self.app.num_seq();
+        if num == 0 {
+            1
+        } else {
+            num.ilog10() as u16 + 1
+        }
     }
 
     // Width of seq num pane, which is the length of the longest seq num + border width (1).

@@ -53,7 +53,7 @@ is the rejection target.
 Views are named subsets of sequences with their own ordering, tree, searches,
 selection, cursor, and notes. You can create (`:vc`), switch (`:vs`), delete
 (`:vd`), create a view from the current selection (`:vx`), and move selected
-sequences to another view (`:mv`).
+sequences to another view (`:mv`). Switching views clears the current selection.
 
 ## Ordering and Metrics
 

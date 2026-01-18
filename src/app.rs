@@ -581,6 +581,8 @@ impl App {
         }
         self.store_current_view_state();
         self.load_view_state(view)?;
+        self.clear_selection();
+        self.clear_cursor();
         Ok(())
     }
 
