@@ -1,4 +1,3 @@
-
 use super::{SearchColorConfig, ToolsConfig};
 use crate::{
     alignment::Alignment,

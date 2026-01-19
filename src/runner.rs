@@ -21,7 +21,7 @@ use crate::seq::stockholm::read_stockholm_file;
 use crate::tree::{parse_newick, tree_lines_and_order, TreeNode};
 use crate::ui::{key_handling::handle_key_press, render::render_ui, UI};
 
-use clap::{Parser, ValueEnum};
+use clap::{CommandFactory, Parser, ValueEnum};
 
 use crossterm::{
     event::{self, KeyEventKind},
@@ -467,6 +467,10 @@ pub fn run() -> Result<(), TermalError> {
 
         Ok(())
     } else {
-        panic!("Expected filename argument");
+        let mut cmd = Cli::command();
+        cmd.print_help().ok();
+        println!();
+        println!("No filename supplied; please pass an alignment or session file.");
+        Ok(())
     }
 }
