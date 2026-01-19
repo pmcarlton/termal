@@ -544,6 +544,24 @@ impl App {
         &self.view_order
     }
 
+    fn clear_tree_state_for_view(view: &mut ViewState) {
+        view.tree = None;
+        view.tree_newick = None;
+        view.tree_lines.clear();
+        view.tree_panel_width = 0;
+    }
+
+    fn clear_current_view_tree(&mut self) {
+        self.tree = None;
+        self.tree_newick = None;
+        self.tree_lines.clear();
+        self.tree_panel_width = 0;
+        self.tree_selection_range = None;
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            Self::clear_tree_state_for_view(view);
+        }
+    }
+
     fn view_kind(name: &str) -> ViewKind {
         match name {
             "original" => ViewKind::Original,
@@ -798,18 +816,26 @@ impl App {
     fn rebuild_filtered_rejected_views(&mut self) {
         let all_ids: Vec<usize> = (0..self.records.len()).collect();
         if let Some(filtered) = self.views.get_mut("filtered") {
-            filtered.sequence_ids = all_ids
+            let next_ids: Vec<usize> = all_ids
                 .iter()
                 .copied()
                 .filter(|id| !self.rejected_ids.contains(id))
                 .collect();
+            if filtered.sequence_ids != next_ids {
+                filtered.sequence_ids = next_ids;
+                Self::clear_tree_state_for_view(filtered);
+            }
         }
         if let Some(rejected) = self.views.get_mut("rejected") {
-            rejected.sequence_ids = all_ids
+            let next_ids: Vec<usize> = all_ids
                 .iter()
                 .copied()
                 .filter(|id| self.rejected_ids.contains(id))
                 .collect();
+            if rejected.sequence_ids != next_ids {
+                rejected.sequence_ids = next_ids;
+                Self::clear_tree_state_for_view(rejected);
+            }
         }
     }
 
@@ -869,13 +895,22 @@ impl App {
             return Ok(ids.len());
         }
 
-        let view = self
-            .views
-            .get_mut(name)
-            .ok_or_else(|| TermalError::Format(format!("Unknown view {}", name)))?;
-        let added = Self::append_ids_in_order(&mut view.sequence_ids, ids);
-        if name == self.current_view {
-            self.current_view_ids = view.sequence_ids.clone();
+        let (added, updated_ids, clear_tree, is_current) = {
+            let view = self
+                .views
+                .get_mut(name)
+                .ok_or_else(|| TermalError::Format(format!("Unknown view {}", name)))?;
+            let added = Self::append_ids_in_order(&mut view.sequence_ids, ids);
+            let updated_ids = view.sequence_ids.clone();
+            let clear_tree = added > 0;
+            let is_current = name == self.current_view;
+            if clear_tree && !is_current {
+                Self::clear_tree_state_for_view(view);
+            }
+            (added, updated_ids, clear_tree, is_current)
+        };
+        if is_current {
+            self.current_view_ids = updated_ids;
             self.alignment = self.build_alignment_for_ids(&self.current_view_ids);
             let len = self.alignment.num_seq();
             self.ordering = (0..len).collect();
@@ -883,6 +918,9 @@ impl App {
             self.refresh_saved_searches();
             self.recompute_ordering();
             self.prune_selection_and_cursor();
+            if clear_tree {
+                self.clear_current_view_tree();
+            }
         }
         Ok(added)
     }
@@ -1907,6 +1945,9 @@ impl App {
         header_set.extend(self.alignment.headers.iter().cloned());
         if let Some(ordering) = &mut self.user_ordering {
             ordering.retain(|hdr| header_set.contains(hdr));
+        }
+        if !removed.is_empty() {
+            self.clear_current_view_tree();
         }
 
         self.recompute_search_state(
@@ -3105,6 +3146,41 @@ mod tests {
             view.user_ordering.as_ref().unwrap(),
             &vec!["R2".to_string()]
         );
+    }
+
+    #[test]
+    fn test_tree_invalidated_on_view_change() {
+        let hdrs = vec![String::from("R1"), String::from("R2")];
+        let seqs = vec![String::from("AA"), String::from("BB")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        app.create_view_from_current("custom").unwrap();
+        app.switch_view("custom").unwrap();
+
+        let tree = parse_newick("(R1,R2);").unwrap();
+        let (lines, _order) = tree_lines_and_order(&tree).unwrap();
+        app.tree = Some(tree.clone());
+        app.tree_newick = Some(String::from("(R1,R2);"));
+        app.tree_lines = lines.clone();
+        app.tree_panel_width = app
+            .tree_lines
+            .iter()
+            .map(|line| line.len() as u16)
+            .max()
+            .unwrap_or(0);
+        if let Some(view) = app.views.get_mut("custom") {
+            view.tree = Some(tree);
+            view.tree_newick = Some(String::from("(R1,R2);"));
+            view.tree_lines = lines;
+            view.tree_panel_width = app.tree_panel_width;
+        }
+
+        app.remove_sequences(&[0]);
+        assert!(app.tree.is_none());
+        assert!(app.tree_lines.is_empty());
+        let view = app.views.get("custom").expect("view");
+        assert!(view.tree.is_none());
+        assert!(view.tree_lines.is_empty());
     }
 
     #[test]
