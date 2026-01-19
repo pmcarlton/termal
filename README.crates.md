@@ -54,9 +54,9 @@ Best results in a dark-themed terminal.
 ## More Info
 
 - Source, releases, and test data:  
-  [https://github.com/sib-swiss/msafara](https://github.com/sib-swiss/msafara)
+  [https://github.com/pmcarlton/msafara](https://github.com/pmcarlton/msafara)
 
-- Platform-specific binaries (Linux, macOS, Windows) available on the [Releases](https://github.com/sib-swiss/msafara/releases) page.
+- Platform-specific binaries (Linux, macOS) available on the [Releases](https://github.com/sib-swiss/msafara/releases) page.
 
 ---
 

@@ -1,4 +1,4 @@
-.PHONY: test clean install fmt manuscript release
+.PHONY: test clean install fmt release
 
 VERSION=v1.0.0
 RUST_SOURCES = $(shell find src -name '*.rs')
@@ -9,11 +9,10 @@ COMPRESSED_LINUX_STATIC_BINARY_SHA256 = $(COMPRESSED_LINUX_STATIC_BINARY).sha256
 WINDOWS_BINARY = ./target/x86_64-pc-windows-gnu/release/msafara.exe
 INSTALL_DIR = /usr/local/bin
 MAN_DIR = /usr/share/man
-MS_DIR = ./manuscript
 BINARIES = $(LINUX_BINARY) $(LINUX_STATIC_BINARY) $(WINDOWS_BINARY) 
 COMPRESSED_BINARIES = $(COMPRESSED_LINUX_STATIC_BINARY) 
 
-all: $(BINARIES) $(COMPRESSED_BINARIES) msafara.1.gz manuscript
+all: $(BINARIES) $(COMPRESSED_BINARIES) msafara.1.gz
 
 release: $(COMPRESSED_BINARIES) $(COMPRESSED_LINUX_STATIC_BINARY_SHA256)
 
@@ -53,9 +52,6 @@ roadmap.pdf: roadmap.md meta.yaml
 install: 
 	install -m 755 $(LINUX_BINARY) $(INSTALL_DIR)
 	install -m 644 msafara.1.gz $(MAN_DIR)/man1
-
-manuscript:
-	$(MAKE) -C $(MS_DIR)
 
 test:
 	cargo test 2> /dev/null
