@@ -5,7 +5,7 @@
 use std::{
     fmt,
     fs::File,
-    io::{stdout, BufRead, BufReader, Write},
+    io::{stdout, BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Duration,
@@ -182,7 +182,7 @@ struct AutoAlignResult {
 }
 
 fn align_fasta_with_mafft(
-    input_path: &Path,
+    seq_file: &crate::seq::file::SeqFile,
     mafft_bin_dir: Option<&Path>,
 ) -> Result<AutoAlignResult, TermalError> {
     let mafft_bin_dir = mafft_bin_dir.ok_or_else(|| {
@@ -193,7 +193,14 @@ fn align_fasta_with_mafft(
     let mut input_tmp = std::env::temp_dir();
     let unique_in = format!("termal-mafft-auto-{}.in.fa", std::process::id());
     input_tmp.push(unique_in);
-    std::fs::copy(input_path, &input_tmp)?;
+    {
+        let file = std::fs::File::create(&input_tmp)?;
+        let mut writer = BufWriter::new(file);
+        for record in seq_file {
+            writeln!(writer, ">{}", record.header)?;
+            writeln!(writer, "{}", record.sequence)?;
+        }
+    }
 
     let mut output_path = std::env::temp_dir();
     let unique_out = format!("termal-mafft-auto-{}.out.fa", std::process::id());
@@ -300,7 +307,7 @@ pub fn run() -> Result<(), TermalError> {
                     let seq_file = read_fasta_file(seq_filename)?;
                     if needs_alignment(&seq_file) {
                         let aligned = align_fasta_with_mafft(
-                            Path::new(seq_filename),
+                            &seq_file,
                             config
                                 .as_ref()
                                 .and_then(|cfg| cfg.tools.mafft_bin_dir.as_deref()),
