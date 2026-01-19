@@ -2266,6 +2266,15 @@ impl App {
         }
     }
 
+    pub fn set_tree_ordering_from_tree(&mut self) -> Result<(), TermalError> {
+        let Some(tree) = self.tree.as_ref() else {
+            return Ok(());
+        };
+        let (_lines, order) = tree_lines_and_order(tree)?;
+        self.set_user_ordering(order)?;
+        Ok(())
+    }
+
     fn update_tree_lines_for_selection(&mut self) {
         if let Some(tree) = &self.tree {
             let selection = self.tree_selection_range;
@@ -3221,6 +3230,19 @@ mod tests {
         let view = app.views.get("original").expect("view");
         assert!(view.tree.is_some());
         assert!(view.tree_lines.len() == 2);
+    }
+
+    #[test]
+    fn test_set_tree_ordering_from_tree() {
+        let hdrs = vec![String::from("R1"), String::from("R2")];
+        let seqs = vec![String::from("AA"), String::from("BB")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        let tree = parse_newick("(R2,R1);").unwrap();
+        app.tree = Some(tree);
+        app.set_tree_ordering_from_tree().unwrap();
+        assert_eq!(app.get_seq_ordering(), SeqOrdering::User);
+        assert_eq!(app.ordering, vec![1, 0]);
     }
 
     #[test]

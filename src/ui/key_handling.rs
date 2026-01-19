@@ -517,6 +517,12 @@ fn handle_command(ui: &mut UI, key_event: KeyEvent, mut editor: LineEditor) {
                 match ui.app.tree() {
                     Some(tree) => match super::build_tree_nav(ui.app, tree) {
                         Ok(nav) => {
+                            if let Err(e) = ui.app.set_tree_ordering_from_tree() {
+                                ui.app
+                                    .error_msg(format!("Tree ordering unavailable: {}", e));
+                                mark_dirty(ui);
+                                return;
+                            }
                             apply_tree_nav_selection(ui, &nav);
                             ui.input_mode = InputMode::TreeNav { nav };
                         }
