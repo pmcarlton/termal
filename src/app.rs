@@ -2247,6 +2247,25 @@ impl App {
         self.tree_selection_range
     }
 
+    pub fn set_tree_for_current_view(
+        &mut self,
+        tree: TreeNode,
+        tree_newick: String,
+        tree_lines: Vec<String>,
+        tree_panel_width: u16,
+    ) {
+        self.tree = Some(tree);
+        self.tree_newick = Some(tree_newick);
+        self.tree_lines = tree_lines;
+        self.tree_panel_width = tree_panel_width;
+        if let Some(view) = self.views.get_mut(&self.current_view) {
+            view.tree = self.tree.clone();
+            view.tree_newick = self.tree_newick.clone();
+            view.tree_lines = self.tree_lines.clone();
+            view.tree_panel_width = self.tree_panel_width;
+        }
+    }
+
     fn update_tree_lines_for_selection(&mut self) {
         if let Some(tree) = &self.tree {
             let selection = self.tree_selection_range;
@@ -3181,6 +3200,27 @@ mod tests {
         let view = app.views.get("custom").expect("view");
         assert!(view.tree.is_none());
         assert!(view.tree_lines.is_empty());
+    }
+
+    #[test]
+    fn test_set_tree_for_current_view() {
+        let hdrs = vec![String::from("R1"), String::from("R2")];
+        let seqs = vec![String::from("AA"), String::from("BB")];
+        let aln = Alignment::from_vecs(hdrs, seqs);
+        let mut app = App::new("TEST", aln, None);
+        let tree = parse_newick("(R1,R2);").unwrap();
+        let (lines, _order) = tree_lines_and_order(&tree).unwrap();
+        let width = lines
+            .iter()
+            .map(|line| line.chars().count())
+            .max()
+            .unwrap_or(0)
+            .min(u16::MAX as usize) as u16;
+        app.set_tree_for_current_view(tree, String::from("(R1,R2);"), lines, width);
+        assert!(app.tree().is_some());
+        let view = app.views.get("original").expect("view");
+        assert!(view.tree.is_some());
+        assert!(view.tree_lines.len() == 2);
     }
 
     #[test]

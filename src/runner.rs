@@ -18,6 +18,7 @@ use crate::app::{App, TermalConfig};
 use crate::seq::clustal::read_clustal_file;
 use crate::seq::fasta::read_fasta_file;
 use crate::seq::stockholm::read_stockholm_file;
+use crate::tree::{parse_newick, tree_lines_and_order, TreeNode};
 use crate::ui::{key_handling::handle_key_press, render::render_ui, UI};
 
 use clap::{Parser, ValueEnum};
@@ -171,15 +172,29 @@ fn needs_alignment(seq_file: &crate::seq::file::SeqFile) -> bool {
     iter.any(|rec| rec.sequence.len() != first_len)
 }
 
+struct AutoAlignResult {
+    seq_file: crate::seq::file::SeqFile,
+    tree: Option<TreeNode>,
+    tree_newick: Option<String>,
+    tree_lines: Vec<String>,
+    tree_panel_width: u16,
+    tree_error: Option<String>,
+}
+
 fn align_fasta_with_mafft(
     input_path: &Path,
     mafft_bin_dir: Option<&Path>,
-) -> Result<crate::seq::file::SeqFile, TermalError> {
+) -> Result<AutoAlignResult, TermalError> {
     let mafft_bin_dir = mafft_bin_dir.ok_or_else(|| {
         TermalError::Format(String::from(
             "Unaligned FASTA requires mafft. Install mafft and set mafft_bin_dir in .termalconfig.",
         ))
     })?;
+    let mut input_tmp = std::env::temp_dir();
+    let unique_in = format!("termal-mafft-auto-{}.in.fa", std::process::id());
+    input_tmp.push(unique_in);
+    std::fs::copy(input_path, &input_tmp)?;
+
     let mut output_path = std::env::temp_dir();
     let unique_out = format!("termal-mafft-auto-{}.out.fa", std::process::id());
     output_path.push(unique_out);
@@ -193,7 +208,9 @@ fn align_fasta_with_mafft(
         .arg("--maxiterate")
         .arg("1000")
         .arg("--localpair")
-        .arg(input_path)
+        .arg("--treeout")
+        .arg("--reorder")
+        .arg(&input_tmp)
         .stdout(Stdio::from(output_file))
         .stderr(Stdio::inherit())
         .status()
@@ -202,8 +219,48 @@ fn align_fasta_with_mafft(
         return Err(TermalError::Format(String::from("mafft failed")));
     }
     let aligned = read_fasta_file(&output_path)?;
+
+    let mut tree_error = None;
+    let mut tree = None;
+    let mut tree_newick = None;
+    let mut tree_lines = Vec::new();
+    let mut tree_panel_width = 0;
+    let tree_path = PathBuf::from(format!("{}.tree", input_tmp.display()));
+    match std::fs::read_to_string(&tree_path) {
+        Ok(tree_text) => match parse_newick(&tree_text) {
+            Ok(parsed) => {
+                if let Ok((lines, _order)) = tree_lines_and_order(&parsed) {
+                    tree_panel_width = lines
+                        .iter()
+                        .map(|line| line.chars().count())
+                        .max()
+                        .unwrap_or(0)
+                        .min(u16::MAX as usize) as u16;
+                    tree_lines = lines;
+                }
+                tree = Some(parsed);
+                tree_newick = Some(tree_text);
+            }
+            Err(e) => {
+                tree_error = Some(format!("Failed to parse mafft tree: {}", e));
+            }
+        },
+        Err(e) => {
+            tree_error = Some(format!("Failed to read mafft tree: {}", e));
+        }
+    }
+
+    std::fs::remove_file(&input_tmp).ok();
     std::fs::remove_file(&output_path).ok();
-    Ok(aligned)
+    std::fs::remove_file(&tree_path).ok();
+    Ok(AutoAlignResult {
+        seq_file: aligned,
+        tree,
+        tree_newick,
+        tree_lines,
+        tree_panel_width,
+        tree_error,
+    })
 }
 
 pub fn run() -> Result<(), TermalError> {
@@ -231,6 +288,8 @@ pub fn run() -> Result<(), TermalError> {
                 }
             }
         }
+        let mut auto_tree: Option<(TreeNode, String, Vec<String>, u16)> = None;
+        let mut auto_tree_err: Option<String> = None;
         let mut app = if Path::new(seq_filename).extension().and_then(|s| s.to_str())
             == Some("trml")
         {
@@ -246,7 +305,18 @@ pub fn run() -> Result<(), TermalError> {
                                 .as_ref()
                                 .and_then(|cfg| cfg.tools.mafft_bin_dir.as_deref()),
                         )?;
-                        aligned
+                        if let Some(tree) = aligned.tree {
+                            if let Some(tree_text) = aligned.tree_newick {
+                                auto_tree = Some((
+                                    tree,
+                                    tree_text,
+                                    aligned.tree_lines,
+                                    aligned.tree_panel_width,
+                                ));
+                            }
+                        }
+                        auto_tree_err = aligned.tree_error;
+                        aligned.seq_file
                     } else {
                         seq_file
                     }
@@ -291,6 +361,12 @@ pub fn run() -> Result<(), TermalError> {
             app
         };
 
+        if let Some((tree, tree_newick, tree_lines, tree_panel_width)) = auto_tree.take() {
+            app.set_tree_for_current_view(tree, tree_newick, tree_lines, tree_panel_width);
+        }
+        if let Some(msg) = auto_tree_err.take() {
+            app.error_msg(msg);
+        }
         if let Some(msg) = config_err.take() {
             app.error_msg(msg);
         }
