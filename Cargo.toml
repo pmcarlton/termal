@@ -1,12 +1,12 @@
 [package]
 name = "msafara"
-version = "1.3.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/sib-swiss/msafara"
+repository = "https://github.com/pmcarlton/msafara"
 readme = "README.crates.md"
-description = "A viewer of multiple sequence alignments, with a text user interface"
-keywords = ["multiple-alignment", "viewer", "terminal", "TUI"]
+description = "View, edit, and explore multiple sequence alignments in your terminal"
+keywords = ["multiple sequence alignment", "msa", "bioinformatics", "viewer", "terminal", "TUI"]
 categories = ["science::bioinformatics", "science::bioinformatics::sequence-analysis", "command-line-utilities"]
 include = ["**/*.rs", "src/ui/bindings.md", "Cargo.toml", "README.crates.md", "data/example-1.msa", "data/CD00377_ICL-PEPM_wDesc.msa", "data/PF00244.26.sto", "data/OX_OFA-pg2.msa", "data/OX_OFA-pg2.order"]
 #homepage: no page other than repo
