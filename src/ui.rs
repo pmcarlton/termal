@@ -51,6 +51,14 @@ pub enum ZoomLevel {
     ZoomedOutAR,
 }
 
+fn detect_truecolor() -> bool {
+    let Ok(colorterm) = std::env::var("COLORTERM") else {
+        return false;
+    };
+    let colorterm = colorterm.to_ascii_lowercase();
+    colorterm.contains("truecolor") || colorterm.contains("24bit")
+}
+
 #[derive(Debug)]
 enum BottomPanePosition {
     Adjacent,
@@ -326,6 +334,7 @@ pub struct UI<'a> {
     app: &'a mut App,
     color_schemes: Vec<ColorScheme>,
     current_color_scheme_index: usize,
+    use_truecolor: bool,
     zoom_level: ZoomLevel,
     show_zoombox: bool,
     //zoombox_color: Style,
@@ -364,10 +373,12 @@ impl<'a> UI<'a> {
             ColorScheme::color_scheme_monochrome(),
         ];
         let default_color_scheme_index = color_schemes.len() - 1;
+        let use_truecolor = detect_truecolor();
         UI {
             app,
             color_schemes,
             current_color_scheme_index: default_color_scheme_index,
+            use_truecolor,
             zoom_level: ZoomLevel::ZoomedIn,
             show_zoombox: true,
             show_zb_guides: true,
@@ -926,6 +937,7 @@ impl<'a> UI<'a> {
                 gap_dim_factor: config.gap_dim_factor,
                 luminance_threshold: config.luminance_threshold,
                 current_match,
+                use_truecolor: self.use_truecolor,
             },
         )
     }
@@ -1001,7 +1013,7 @@ impl<'a> UI<'a> {
                     Self::search_kind_label(entry.kind),
                     entry.name
                 );
-                let color = Color::Rgb(entry.color.0, entry.color.1, entry.color.2);
+                let color = self.map_color(Color::Rgb(entry.color.0, entry.color.1, entry.color.2));
                 spans.push(Span::styled(label, Style::default().bg(color)));
             }
         }
@@ -1035,21 +1047,33 @@ impl<'a> UI<'a> {
     }
 
     pub fn get_label_num_color(&self) -> Color {
-        self.color_scheme().label_num_color
+        self.map_color(self.color_scheme().label_num_color)
     }
 
     pub fn get_zoombox_color(&self) -> Color {
         match self.color_scheme().theme {
-            Theme::Dark | Theme::Light => self.color_scheme().zoombox_color,
+            Theme::Dark | Theme::Light => self.map_color(self.color_scheme().zoombox_color),
             Theme::Monochrome => Color::Reset,
         }
     }
 
     pub fn get_seq_metric_style(&self) -> Style {
         match self.color_scheme().theme {
-            Theme::Dark | Theme::Light => Style::default().fg(self.color_scheme().seq_metric_color),
+            Theme::Dark | Theme::Light => {
+                Style::default().fg(self.map_color(self.color_scheme().seq_metric_color))
+            }
             // For now, we let monochrome theme use terminal defaults
             Theme::Monochrome => Style::default().fg(Color::Reset).bg(Color::Reset),
+        }
+    }
+
+    pub fn map_color(&self, color: Color) -> Color {
+        if self.use_truecolor {
+            return color;
+        }
+        match color {
+            Color::Rgb(r, g, b) => Color::Indexed(crate::ui::color_map::rgb_to_ansi256(r, g, b)),
+            _ => color,
         }
     }
 

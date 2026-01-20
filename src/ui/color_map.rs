@@ -296,3 +296,19 @@ pub fn colormap_gecos(path: &str) -> Result<ColorMap, TermalError> {
 
     Ok(ColorMap::new("custom".into(), color_map))
 }
+
+pub fn rgb_to_ansi256(r: u8, g: u8, b: u8) -> u8 {
+    if r == g && g == b {
+        if r < 8 {
+            return 16;
+        }
+        if r > 248 {
+            return 231;
+        }
+        return 232 + ((r as u16 - 8) / 10) as u8;
+    }
+    let r = ((r as u16 * 5 + 127) / 255) as u8;
+    let g = ((g as u16 * 5 + 127) / 255) as u8;
+    let b = ((b as u16 * 5 + 127) / 255) as u8;
+    16 + 36 * r + 6 * g + b
+}

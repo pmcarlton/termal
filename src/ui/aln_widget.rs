@@ -20,6 +20,7 @@ pub struct SearchHighlightConfig {
     pub gap_dim_factor: f32,
     pub luminance_threshold: f32,
     pub current_match: Option<SeqMatch>,
+    pub use_truecolor: bool,
 }
 
 pub struct SeqPane<'a> {
@@ -226,7 +227,12 @@ fn highlight_color(
         .current_match
         .map(|m| m.seq_index == seq_index && m.start <= col && col < m.end)
         .unwrap_or(false);
-    Some((Color::Rgb(r, g, b), use_black_fg, is_current))
+    let color = if config.use_truecolor {
+        Color::Rgb(r, g, b)
+    } else {
+        Color::Indexed(crate::ui::color_map::rgb_to_ansi256(r, g, b))
+    };
+    Some((color, use_black_fg, is_current))
 }
 
 fn color_to_rgb(color: Color) -> Option<(u8, u8, u8)> {
