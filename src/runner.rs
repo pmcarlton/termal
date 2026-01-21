@@ -5,7 +5,7 @@
 use std::{
     fmt,
     fs::File,
-    io::{stdout, BufRead, BufReader, BufWriter, Write},
+    io::{stdin, stdout, BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Duration,
@@ -22,6 +22,7 @@ use crate::tree::{parse_newick, tree_lines_and_order, TreeNode};
 use crate::ui::{key_handling::handle_key_press, render::render_ui, UI};
 
 use clap::{CommandFactory, Parser, ValueEnum};
+use serde_json::json;
 
 use crossterm::{
     event::{self, KeyEventKind},
@@ -163,6 +164,68 @@ fn find_msafara_config() -> Option<PathBuf> {
     None
 }
 
+fn which_path(tool: &str) -> Option<PathBuf> {
+    let output = Command::new("which").arg(tool).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    let path = output_str.lines().next().map(str::trim)?;
+    if path.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(path))
+    }
+}
+
+fn prompt_create_config() -> Result<Option<PathBuf>, TermalError> {
+    let home = std::env::var("HOME").map_err(|_| {
+        TermalError::Format(String::from("No $HOME set; cannot create .msafara.config"))
+    })?;
+    let config_path = PathBuf::from(home).join(".msafara.config");
+    println!("No .msafara.config found in $HOME or current directory.");
+    print!("Create a default config in $HOME? [y/N]: ");
+    stdout().flush().ok();
+    let mut response = String::new();
+    stdin().read_line(&mut response)?;
+    let response = response.trim();
+    if !matches!(response, "y" | "Y") {
+        return Ok(None);
+    }
+
+    let emboss_path = which_path("fuzzpro").or_else(|| which_path("fuzznuc"));
+    let mafft_path = which_path("mafft");
+    if emboss_path.is_none() {
+        println!("Warning: could not find fuzzpro or fuzznuc in PATH.");
+    }
+    if mafft_path.is_none() {
+        println!("Warning: could not find mafft in PATH.");
+    }
+    let emboss_bin_dir = emboss_path.and_then(|path| path.parent().map(PathBuf::from));
+    let mafft_bin_dir = mafft_path.and_then(|path| path.parent().map(PathBuf::from));
+    let colors = crate::app::SearchColorConfig::default();
+
+    let config = json!({
+        "palette": colors
+            .palette
+            .iter()
+            .map(|(r, g, b)| [*r, *g, *b])
+            .collect::<Vec<[u8; 3]>>(),
+        "current_search": [colors.current_search.0, colors.current_search.1, colors.current_search.2],
+        "min_component": colors.min_component,
+        "gap_dim_factor": colors.gap_dim_factor,
+        "luminance_threshold": colors.luminance_threshold,
+        "emboss_bin_dir": emboss_bin_dir.as_ref().map(|p| p.to_string_lossy()),
+        "mafft_bin_dir": mafft_bin_dir.as_ref().map(|p| p.to_string_lossy()),
+    });
+
+    let contents = serde_json::to_string_pretty(&config)
+        .map_err(|e| TermalError::Format(format!("Failed to build config: {}", e)))?;
+    std::fs::write(&config_path, contents)?;
+    println!("Wrote {}", config_path.display());
+    Ok(Some(config_path))
+}
+
 fn needs_alignment(seq_file: &crate::seq::file::SeqFile) -> bool {
     let mut iter = seq_file.iter();
     let Some(first) = iter.next() else {
@@ -287,7 +350,15 @@ pub fn run() -> Result<(), TermalError> {
     if let Some(seq_filename) = &cli.aln_fname {
         let mut config_err: Option<String> = None;
         let mut config: Option<TermalConfig> = None;
-        if let Some(path) = find_msafara_config() {
+        let mut config_path = find_msafara_config();
+        if config_path.is_none() {
+            match prompt_create_config() {
+                Ok(Some(path)) => config_path = Some(path),
+                Ok(None) => {}
+                Err(e) => config_err = Some(format!("{}", e)),
+            }
+        }
+        if let Some(path) = config_path {
             match TermalConfig::from_file(&path) {
                 Ok(cfg) => config = Some(cfg),
                 Err(e) => {
